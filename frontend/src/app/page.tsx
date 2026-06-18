@@ -620,7 +620,7 @@ function MarketSection({
         <h2 className="text-lg font-semibold text-navy">Property Market Price Fluctuations</h2>
         <div className="mt-4 h-[360px]">
           {hasMounted ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <LineChart data={chartData} margin={{ top: 12, right: 18, bottom: 12, left: 0 }}>
                 <CartesianGrid stroke="#CBD5E1" strokeDasharray="3 3" />
                 <XAxis
