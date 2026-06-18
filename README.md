@@ -81,6 +81,41 @@ cd frontend
 npm run typecheck
 ```
 
+## GitHub
+
+This repo includes GitHub Actions CI at `.github/workflows/ci.yml`.
+
+On every push to `main` and every pull request, GitHub runs:
+
+- Backend dependency install
+- Backend unit and XLSX integration tests
+- Frontend dependency install with `npm ci`
+- Frontend dependency audit
+- Frontend TypeScript check
+- Frontend production build
+
+### Run in GitHub Codespaces
+
+The repo includes a `.devcontainer/devcontainer.json` for GitHub Codespaces.
+
+1. Open the repository on GitHub.
+2. Choose **Code** > **Codespaces** > **Create codespace on main**.
+3. Wait for dependency installation to finish.
+4. In VS Code, run these tasks:
+   - `Evalfuture: backend API`
+   - `Evalfuture: frontend`
+5. Open the forwarded frontend port `3000`.
+
+The backend runs on port `8000`, and the frontend expects it at `http://localhost:8000` by default.
+
+### GitHub Pages Note
+
+GitHub Pages can host static frontend files, but it cannot run the FastAPI backend or Python `xlsxwriter` export service. The full app needs a running backend. For a public hosted version, deploy the backend to a Python-capable host and set the frontend environment variable:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=https://your-backend.example.com
+```
+
 ## Dynamic Workbook Behavior
 
 - Loan term controls visible market rows.
