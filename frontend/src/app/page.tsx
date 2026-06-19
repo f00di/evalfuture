@@ -1,375 +1,149 @@
-import ModelDashboard from "@/components/ModelDashboard";
+import type { Metadata } from "next";
+import Link from "next/link";
+import ContactCard from "@/components/site/ContactCard";
+import CTASection from "@/components/site/CTASection";
+import FreeComparisonPreview from "@/components/site/FreeComparisonPreview";
+import PageShell from "@/components/site/PageShell";
+import SectionHeader from "@/components/site/SectionHeader";
+import ServiceCard from "@/components/site/ServiceCard";
+import { contactDetails, freeComparisonItems, processSteps, serviceOffers } from "@/lib/site";
 
-const navItems = [
-  ["How It Works", "#how-it-works"],
-  ["Services", "#services"],
-  ["Free Comparison", "#free-comparison"],
-  ["Model Preview", "#model-preview"],
-  ["Contact", "#contact"]
-];
-
-const decisionFactors = [
-  "Mortgage payments",
-  "Down payments",
-  "Purchase costs",
-  "Interest over time",
-  "Rental income",
-  "Service charges",
-  "Early settlement fees",
-  "Market price rise/drop",
-  "Opportunity cost of savings",
-  "Exit/resale value"
-];
-
-const services = [
-  {
-    title: "Free Initial Comparison",
-    description:
-      "A quick rent-vs-buy comparison using your property price, expected rent, loan term, mortgage rate, service charges, and market assumptions.",
-    cta: "Get a Free Comparison",
-    href: "#free-comparison"
-  },
-  {
-    title: "Detailed Property Evaluation",
-    description:
-      "A more detailed quote/report based on the initial comparison, including year-by-year rental, financing, resale, and market movement assumptions.",
-    cta: "Request Detailed Evaluation",
-    href: "#contact"
-  },
-  {
-    title: "Consulting Session",
-    description:
-      "A one-to-one session to review the numbers, scenarios, financing structure, and property assumptions in more detail.",
-    cta: "Book a Consulting Session",
-    href: "#contact"
-  }
-];
+export const metadata: Metadata = {
+  title: "Evalfuture. | Rent vs Buy Property Comparison UAE",
+  description:
+    "Compare renting, buying, financing, rental income, mortgage interest, service charges, and market movement with Evalfuture."
+};
 
 export default function Home() {
   return (
-    <main className="min-h-screen text-navy">
-      <SiteHeader />
-      <HeroSection />
-      <ValueSection />
-      <HowItWorksSection />
-      <ServicesSection />
-      <FreeComparisonSection />
-      <ContactSection />
-      <SiteFooter />
-    </main>
-  );
-}
-
-function SiteHeader() {
-  return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-        <a href="#top" className="text-xl font-semibold tracking-normal text-navy">
-          Evalfuture.
-        </a>
-        <nav className="flex flex-wrap items-center gap-2 text-sm text-slateFinance lg:justify-end">
-          {navItems.map(([label, href]) => (
-            <a
-              key={label}
-              href={href}
-              className="rounded-md px-2.5 py-2 font-medium transition hover:bg-panelBlue hover:text-navy"
-            >
-              {label}
-            </a>
-          ))}
-          <a
-            href="#free-comparison"
-            className="rounded-md bg-tealFinance px-4 py-2 font-semibold text-white shadow-sm transition hover:bg-[#0b625b]"
-          >
-            Get a Free Comparison
-          </a>
-        </nav>
-      </div>
-    </header>
-  );
-}
-
-function HeroSection() {
-  return (
-    <section id="top" className="border-b border-slate-200 bg-creamFinance">
-      <div className="mx-auto grid max-w-[1500px] gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(380px,520px)] lg:px-8 lg:py-16">
-        <div className="flex flex-col justify-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-tealFinance">
-            Property comparison and financing evaluation
-          </p>
-          <h1 className="mt-4 max-w-4xl text-4xl font-semibold leading-tight text-navy sm:text-5xl">
-            Compare Renting, Buying, and Financing Property with Confidence
-          </h1>
-          <p className="mt-5 max-w-3xl text-base leading-7 text-slateFinance sm:text-lg">
-            Evalfuture. helps property buyers, landlords, and investors understand the
-            long-term numbers behind renting, buying, mortgage financing, rental income, service
-            charges, interest, and market movement.
-          </p>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            <a
-              href="#free-comparison"
-              className="rounded-md bg-tealFinance px-5 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b625b]"
-            >
-              Get a Free Comparison
-            </a>
-            <a
-              href="#model-preview"
-              className="rounded-md border border-navy px-5 py-3 text-center text-sm font-semibold text-navy transition hover:bg-navy hover:text-white"
-            >
-              View Model Preview
-            </a>
-          </div>
-          <p className="mt-5 max-w-2xl text-xs leading-5 text-slateFinance">
-            This comparison is for informational purposes only and does not constitute financial,
-            investment, mortgage, tax, or legal advice.
-          </p>
-        </div>
-        <HeroDashboardVisual />
-      </div>
-    </section>
-  );
-}
-
-function HeroDashboardVisual() {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-tealFinance">
-            Evalfuture. snapshot
-          </p>
-          <h2 className="mt-1 text-xl font-semibold text-navy">Property decision view</h2>
-        </div>
-        <div className="rounded-md bg-inputAmber px-3 py-2 text-sm font-semibold text-navy">
-          AED
-        </div>
-      </div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        {[
-          ["Rental outcome", "Net annual cost"],
-          ["Buying cash", "Initial capital view"],
-          ["Mortgage option", "Interest and principal"],
-          ["Resale scenario", "Market movement"]
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-slate-200 bg-creamFinance p-4">
-            <p className="text-sm font-medium text-slateFinance">{label}</p>
-            <p className="mt-2 text-lg font-semibold text-navy">{value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-5 rounded-lg border border-slate-200 bg-panelBlue/70 p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm font-semibold text-navy">10-year comparison curve</p>
-          <p className="text-xs font-semibold text-positiveGreen">Preview</p>
-        </div>
-        <div className="flex h-32 items-end gap-2">
-          {[58, 64, 60, 72, 68, 82, 76, 88, 84, 94].map((height, index) => (
-            <div key={index} className="flex flex-1 flex-col items-center gap-2">
-              <div
-                className="w-full rounded-t-md bg-tealFinance"
-                style={{ height: `${height}%` }}
-              />
-              <span className="text-[10px] font-semibold text-slateFinance">{index + 1}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <MiniMetric label="Loan term" value="10 yrs" />
-        <MiniMetric label="Rent yield" value="7.5%" />
-        <MiniMetric label="Market" value="Default" />
-      </div>
-    </div>
-  );
-}
-
-function ValueSection() {
-  return (
-    <section className="bg-white py-14" aria-labelledby="value-heading">
-      <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+    <PageShell>
+      <Hero />
+      <section className="bg-creamFinance py-14" aria-labelledby="free-includes">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:px-8">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-tealFinance">
-              The decision is rarely simple
-            </p>
-            <h2 id="value-heading" className="mt-3 text-3xl font-semibold text-navy">
-              Property choices need more than a headline price
-            </h2>
-            <p className="mt-4 text-base leading-7 text-slateFinance">
-              Renting, renting out, buying outright, or buying with financing can each look
-              attractive until all cash flows are compared year by year. Evalfuture. simplifies
-              the complicated financial comparison into a practical view of costs, income,
-              financing, and potential resale outcomes.
-            </p>
+            <SectionHeader
+              eyebrow="What your free comparison includes"
+              title="A compact first view of the numbers"
+              body="Start with the major assumptions and outcome signals clients need before opening the full model."
+            />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {decisionFactors.map((factor) => (
-              <div key={factor} className="rounded-lg border border-slate-200 bg-creamFinance p-4">
-                <p className="text-sm font-semibold text-navy">{factor}</p>
-              </div>
+          <div id="free-includes">
+            <FreeComparisonPreview ctaLabel="Get Yours Free" />
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white py-14" aria-labelledby="services-preview">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <SectionHeader
+            eyebrow="Services"
+            title="Choose the level of evaluation your property decision needs"
+            body="Use the free comparison first, then request deeper support when the assumptions need more review."
+          />
+          <div id="services-preview" className="mt-8 grid gap-5 lg:grid-cols-3">
+            {serviceOffers.slice(0, 3).map((service) => (
+              <ServiceCard key={service.title} {...service} />
             ))}
           </div>
         </div>
-      </div>
-    </section>
-  );
-}
+      </section>
 
-function HowItWorksSection() {
-  const steps = [
-    [
-      "01",
-      "Share property assumptions",
-      "Enter price, rent, mortgage, service charge, and market movement assumptions."
-    ],
-    [
-      "02",
-      "Get a free initial comparison",
-      "Preview the direction of the rent-vs-buy and financing outcome before requesting deeper review."
-    ],
-    [
-      "03",
-      "Review rent-vs-buy outcomes",
-      "Compare rental cash flows, bank instalments, interest, principal, market value, and resale assumptions."
-    ],
-    [
-      "04",
-      "Move to detailed support",
-      "Upgrade to a Detailed Property Evaluation or Consulting Session when a decision needs more structure."
-    ]
-  ];
-
-  return (
-    <section id="how-it-works" className="border-y border-slate-200 bg-panelBlue/60 py-14">
-      <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
-        <SectionHeader
-          eyebrow="How Evalfuture. helps"
-          title="A clearer route from assumptions to decision support"
-          body="The flow starts with a free initial comparison and can extend into a more detailed evaluation or consulting session."
-        />
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {steps.map(([number, title, body]) => (
-            <article key={number} className="rounded-lg border border-slate-200 bg-white p-5 shadow-panel">
-              <div className="mb-5 inline-flex rounded-md bg-inputAmber px-3 py-2 text-sm font-semibold text-navy">
-                {number}
-              </div>
-              <h3 className="text-lg font-semibold text-navy">{title}</h3>
-              <p className="mt-3 text-sm leading-6 text-slateFinance">{body}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ServicesSection() {
-  return (
-    <section id="services" className="bg-white py-14">
-      <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
-        <SectionHeader
-          eyebrow="Services"
-          title="Choose the level of evaluation your property decision needs"
-          body="Start with the free tool, then request deeper review when the numbers require more context."
-        />
-        <div className="mt-8 grid gap-5 lg:grid-cols-3">
-          {services.map((service) => (
-            <article key={service.title} className="flex rounded-lg border border-slate-200 bg-creamFinance p-5 shadow-panel">
-              <div className="flex flex-col">
-                <h3 className="text-xl font-semibold text-navy">{service.title}</h3>
-                <p className="mt-4 flex-1 text-sm leading-6 text-slateFinance">{service.description}</p>
-                <a
-                  href={service.href}
-                  className="mt-6 inline-flex w-fit rounded-md bg-navy px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#102A43]"
-                >
-                  {service.cta}
-                </a>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FreeComparisonSection() {
-  return (
-    <section id="free-comparison" className="border-y border-slate-200 bg-creamFinance py-14">
-      <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
+      <section className="border-y border-slate-200 bg-panelBlue/60 py-14" aria-labelledby="process-preview">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeader
-            eyebrow="Get a Free Comparison"
-            title="Preview the model before requesting a detailed review"
-            body="The free comparison estimates rental outcomes, loan payments, financing costs, service charges, market movement, and resale assumptions from your inputs."
+            eyebrow="How it works"
+            title="A practical route from assumptions to comparison"
+            body="The flow keeps the first decision clean, then makes the full model available when the client is ready."
           />
-          <div className="rounded-lg border border-slate-200 bg-white p-5">
-            <p className="text-sm font-semibold text-navy">Included in the model preview</p>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              {[
-                "Rent-vs-buy outcome",
-                "Default and custom market variation",
-                "Mortgage interest and principal",
-                "Download Your Excel Comparison"
-              ].map((item) => (
-                <div key={item} className="rounded-md bg-panelBlue/70 px-3 py-2 text-sm text-slateFinance">
-                  {item}
+          <div id="process-preview" className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {processSteps.slice(0, 4).map((step, index) => (
+              <article key={step.title} className="rounded-lg border border-slate-200 bg-white p-5 shadow-panel">
+                <div className="mb-5 inline-flex rounded-md bg-inputAmber px-3 py-2 text-sm font-semibold text-navy">
+                  {String(index + 1).padStart(2, "0")}
                 </div>
-              ))}
-            </div>
+                <h3 className="text-lg font-semibold text-navy">{step.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-slateFinance">{step.body}</p>
+              </article>
+            ))}
           </div>
         </div>
-        <ModelDashboard />
-      </div>
-    </section>
-  );
-}
+      </section>
 
-function ContactSection() {
-  return (
-    <section id="contact" className="bg-white py-14">
-      <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-6 rounded-lg border border-slate-200 bg-navy p-6 text-white shadow-panel lg:grid-cols-[1fr_420px] lg:p-8">
+      <section className="bg-white py-14">
+        <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[1fr_420px] lg:items-center lg:px-8">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#9FE3D9]">
-              Consulting and detailed review
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-tealFinance">
+              Contact
             </p>
-            <h2 className="mt-3 text-3xl font-semibold">Need help reviewing a property decision?</h2>
-            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-200">
-              Speak with M. Kashif Ansari to review your property assumptions, financing
-              structure, rental income, and long-term comparison.
+            <h2 className="mt-3 max-w-3xl text-3xl font-semibold leading-tight text-navy">
+              Review a property decision with {contactDetails.name}
+            </h2>
+            <p className="mt-4 max-w-3xl text-base leading-7 text-slateFinance">
+              Evalfuture. supports property buyers, landlords, and investors comparing renting,
+              buying outright, mortgage financing, service charges, rental income, market
+              movement, and long-term outcomes.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <a
-                href="#free-comparison"
+              <Link
+                href="/free-comparison"
                 className="rounded-md bg-tealFinance px-5 py-3 text-center text-sm font-semibold text-white transition hover:bg-[#0b625b]"
               >
                 Get a Free Comparison
-              </a>
-              <a
-                href="mailto:xxxxxx"
-                className="rounded-md border border-white/40 px-5 py-3 text-center text-sm font-semibold text-white transition hover:bg-white hover:text-navy"
+              </Link>
+              <Link
+                href="/contact"
+                className="rounded-md border border-navy px-5 py-3 text-center text-sm font-semibold text-navy transition hover:bg-navy hover:text-white"
               >
-                Request Consulting Session
-              </a>
+                Contact
+              </Link>
             </div>
           </div>
-          <div className="rounded-lg border border-white/15 bg-white/10 p-5">
-            <h3 className="text-lg font-semibold">Contact</h3>
-            <dl className="mt-5 grid gap-4 text-sm">
-              <div>
-                <dt className="text-slate-300">Consultant</dt>
-                <dd className="mt-1 font-semibold text-white">M. Kashif Ansari</dd>
-              </div>
-              <div>
-                <dt className="text-slate-300">UAE</dt>
-                <dd className="mt-1 font-semibold text-white">xxxx</dd>
-              </div>
-              <div>
-                <dt className="text-slate-300">Email</dt>
-                <dd className="mt-1 font-semibold text-white">xxxxxx</dd>
-              </div>
-            </dl>
+          <ContactCard />
+        </div>
+      </section>
+
+      <CTASection
+        eyebrow="Free Initial Comparison"
+        title="Start with the numbers before deciding your next property move"
+        body="Compare rent, buy, financing, service charge, market movement, and resale assumptions in one structured flow."
+        primaryLabel="Get a Free Comparison"
+        primaryHref="/free-comparison"
+        secondaryLabel="Explore Services"
+        secondaryHref="/services"
+      />
+    </PageShell>
+  );
+}
+
+function Hero() {
+  return (
+    <section className="relative overflow-hidden bg-navy text-white">
+      <HeroBackground />
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+        <div className="max-w-3xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#9FE3D9]">
+            Property comparison and financing evaluation
+          </p>
+          <h1 className="mt-4 text-4xl font-semibold leading-tight sm:text-5xl">
+            Compare Renting, Buying, and Financing Property with Confidence
+          </h1>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-200 sm:text-lg">
+            Evalfuture. helps property buyers, landlords, and investors understand the long-term
+            numbers behind rent, mortgages, service charges, interest, and market movement.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/free-comparison"
+              className="rounded-md bg-tealFinance px-5 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b625b]"
+            >
+              Get a Free Comparison
+            </Link>
+            <Link
+              href="/services"
+              className="rounded-md border border-white/40 px-5 py-3 text-center text-sm font-semibold text-white transition hover:bg-white hover:text-navy"
+            >
+              Explore Services
+            </Link>
           </div>
         </div>
       </div>
@@ -377,52 +151,46 @@ function ContactSection() {
   );
 }
 
-function SiteFooter() {
+function HeroBackground() {
   return (
-    <footer className="border-t border-slate-200 bg-creamFinance py-8">
-      <div className="mx-auto grid max-w-[1500px] gap-6 px-4 text-sm text-slateFinance sm:px-6 lg:grid-cols-[1fr_1fr_1.2fr] lg:px-8">
-        <div>
-          <p className="text-lg font-semibold text-navy">Evalfuture.</p>
-          <p className="mt-2">Rent-vs-buy property comparison and financing evaluation</p>
+    <div className="absolute inset-0" aria-hidden="true">
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,31,51,0.96)_0%,rgba(11,31,51,0.86)_45%,rgba(11,31,51,0.42)_100%)]" />
+      <div className="absolute bottom-0 right-0 top-0 hidden w-[58%] lg:block">
+        <div className="absolute inset-y-10 right-8 w-[78%] rounded-lg border border-white/15 bg-white/10 shadow-panel backdrop-blur-sm">
+          <div className="grid h-full grid-rows-[auto_1fr_auto] gap-5 p-6">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {["Rent", "Buy", "Finance"].map((label) => (
+                <div key={label} className="rounded-md border border-white/15 bg-white/10 p-3">
+                  <p className="text-xs text-slate-300">{label}</p>
+                  <div className="mt-3 h-2 rounded-full bg-white/20">
+                    <div className="h-2 rounded-full bg-[#9FE3D9]" style={{ width: "68%" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-10 items-end gap-2">
+              {freeComparisonItems.slice(0, 10).map((item, index) => (
+                <div
+                  key={item.title}
+                  className="rounded-t-md bg-[#9FE3D9]/80"
+                  style={{ height: `${42 + index * 5}%` }}
+                />
+              ))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-md border border-white/15 bg-white/10 p-4">
+                <div className="h-2 w-24 rounded-full bg-white/30" />
+                <div className="mt-4 h-8 rounded-md bg-white/20" />
+              </div>
+              <div className="rounded-md border border-white/15 bg-white/10 p-4">
+                <div className="h-2 w-28 rounded-full bg-white/30" />
+                <div className="mt-4 h-8 rounded-md bg-inputAmber/80" />
+              </div>
+            </div>
+          </div>
         </div>
-        <div>
-          <p className="font-semibold text-navy">Contact details</p>
-          <p className="mt-2">M. Kashif Ansari</p>
-          <p>UAE: xxxx</p>
-          <p>Email: xxxxxx</p>
-        </div>
-        <p className="leading-6">
-          This website provides informational comparisons only and does not constitute financial,
-          investment, mortgage, tax, or legal advice.
-        </p>
+        <div className="absolute bottom-0 right-0 h-44 w-full bg-[linear-gradient(0deg,rgba(15,118,110,0.34),rgba(15,118,110,0))]" />
       </div>
-    </footer>
-  );
-}
-
-function SectionHeader({
-  eyebrow,
-  title,
-  body
-}: {
-  eyebrow: string;
-  title: string;
-  body: string;
-}) {
-  return (
-    <div>
-      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-tealFinance">{eyebrow}</p>
-      <h2 className="mt-3 max-w-3xl text-3xl font-semibold leading-tight text-navy">{title}</h2>
-      <p className="mt-4 max-w-3xl text-base leading-7 text-slateFinance">{body}</p>
-    </div>
-  );
-}
-
-function MiniMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
-      <p className="text-xs font-semibold uppercase text-slateFinance">{label}</p>
-      <p className="mt-1 text-base font-semibold text-navy">{value}</p>
     </div>
   );
 }
