@@ -12,19 +12,20 @@ import {
 } from "recharts";
 import {
   buildDefaultMarketVariations,
+  calculatePreview,
   defaultRequest,
   EvaluationPreview,
   EvaluationRequest,
   fromPercentInput,
   money,
-  numberValue,
   percent,
   resizeCustomVariations,
   Scenario,
   toPercentInput
 } from "@/lib/model";
+import { generateWorkbookBlob, workbookFilename } from "@/lib/workbook";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "";
 
 type QuickFill = {
   firstYearVariation: number;
@@ -65,18 +66,29 @@ export default function Home() {
       setIsLoading(true);
       setApiError(null);
       try {
-        const response = await fetch(`${API_BASE}/api/preview`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(request),
-          signal
-        });
-        if (!response.ok) {
-          const detail = await response.json().catch(() => null);
-          throw new Error(detail?.detail ?? "Preview request failed");
+        let data: EvaluationPreview | null = null;
+        if (API_BASE) {
+          try {
+            const response = await fetch(`${API_BASE}/api/preview`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(request),
+              signal
+            });
+            if (!response.ok) {
+              const detail = await response.json().catch(() => null);
+              throw new Error(detail?.detail ?? "Preview request failed");
+            }
+            data = (await response.json()) as EvaluationPreview;
+          } catch (error) {
+            if ((error as Error).name === "AbortError") {
+              throw error;
+            }
+          }
         }
-        const data = (await response.json()) as EvaluationPreview;
-        setPreview(data);
+        if (!signal?.aborted) {
+          setPreview(data ?? calculatePreview(request));
+        }
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
           setApiError((error as Error).message);
@@ -158,20 +170,28 @@ export default function Home() {
     setIsDownloading(true);
     setApiError(null);
     try {
-      const response = await fetch(`${API_BASE}/api/export`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
-      });
-      if (!response.ok) {
-        const detail = await response.json().catch(() => null);
-        throw new Error(detail?.detail ?? "Workbook export failed");
+      let blob: Blob | null = null;
+      if (API_BASE) {
+        try {
+          const response = await fetch(`${API_BASE}/api/export`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(form)
+          });
+          if (!response.ok) {
+            const detail = await response.json().catch(() => null);
+            throw new Error(detail?.detail ?? "Workbook export failed");
+          }
+          blob = await response.blob();
+        } catch {
+          blob = null;
+        }
       }
-      const blob = await response.blob();
+      blob ??= generateWorkbookBlob(calculatePreview(form));
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = "Evalfuture-model.xlsx";
+      anchor.download = workbookFilename(form.propertyName);
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
