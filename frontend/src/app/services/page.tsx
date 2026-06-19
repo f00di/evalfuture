@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import SectionGlow from "@/components/backgrounds/SectionGlow";
+import ServicesPattern from "@/components/backgrounds/ServicesPattern";
 import CTASection from "@/components/site/CTASection";
 import PageShell from "@/components/site/PageShell";
 import SectionHeader from "@/components/site/SectionHeader";
@@ -14,8 +16,10 @@ export const metadata: Metadata = {
 export default function ServicesPage() {
   return (
     <PageShell>
-      <section className="border-b border-slate-200 bg-creamFinance py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden border-b border-slate-200 bg-creamFinance py-14">
+        <ServicesPattern />
+        <SectionGlow />
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeader
             level="h1"
             eyebrow="Services"
@@ -25,8 +29,9 @@ export default function ServicesPage() {
         </div>
       </section>
 
-      <section className="bg-white py-14">
-        <div className="mx-auto grid max-w-7xl gap-5 px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
+      <section className="relative overflow-hidden bg-white py-14">
+        <ServicesPattern />
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-5 px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
           {serviceOffers.map((service) => (
             <ServiceCard key={service.title} {...service} />
           ))}

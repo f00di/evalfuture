@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import ContactPattern from "@/components/backgrounds/ContactPattern";
+import SectionGlow from "@/components/backgrounds/SectionGlow";
 import ContactCard from "@/components/site/ContactCard";
 import ContactForm from "@/components/site/ContactForm";
 import PageShell from "@/components/site/PageShell";
@@ -12,8 +14,10 @@ export const metadata: Metadata = {
 export default function ContactPage() {
   return (
     <PageShell>
-      <section className="border-b border-slate-200 bg-creamFinance py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden border-b border-slate-200 bg-creamFinance py-14">
+        <ContactPattern />
+        <SectionGlow />
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeader
             level="h1"
             eyebrow="Contact"
@@ -23,8 +27,9 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <section className="bg-white py-14">
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[360px_1fr] lg:px-8">
+      <section className="relative overflow-hidden bg-white py-14">
+        <ContactPattern />
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[360px_1fr] lg:px-8">
           <ContactCard />
           <ContactForm />
         </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ContactPattern from "@/components/backgrounds/ContactPattern";
 
 export default function CTASection({
   eyebrow,
@@ -18,8 +19,10 @@ export default function CTASection({
   secondaryHref?: string;
 }) {
   return (
-    <section className="bg-navy py-14 text-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-center lg:px-8">
+    <section className="relative overflow-hidden bg-navy py-14 text-white">
+      <ContactPattern />
+      <div className="pointer-events-none absolute -right-24 top-0 h-72 w-72 rounded-full bg-tealFinance/[0.08] blur-3xl" aria-hidden="true" />
+      <div className="relative z-10 mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-center lg:px-8">
         <div>
           {eyebrow && (
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#9FE3D9]">

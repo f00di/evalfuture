@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import BlueprintPattern from "@/components/backgrounds/BlueprintPattern";
+import SectionGlow from "@/components/backgrounds/SectionGlow";
 import CTASection from "@/components/site/CTASection";
 import PageShell from "@/components/site/PageShell";
 import SectionHeader from "@/components/site/SectionHeader";
@@ -13,8 +15,10 @@ export const metadata: Metadata = {
 export default function HowItWorksPage() {
   return (
     <PageShell>
-      <section className="border-b border-slate-200 bg-creamFinance py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden border-b border-slate-200 bg-creamFinance py-14">
+        <BlueprintPattern />
+        <SectionGlow />
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeader
             level="h1"
             eyebrow="How It Works"
@@ -24,8 +28,9 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
-      <section className="bg-white py-14">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden bg-white py-14">
+        <BlueprintPattern />
+        <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-4">
             {processSteps.map((step, index) => (
               <article

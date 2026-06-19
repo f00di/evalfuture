@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import BlueprintPattern from "@/components/backgrounds/BlueprintPattern";
+import SectionGlow from "@/components/backgrounds/SectionGlow";
 import FreeComparisonFlow from "@/components/site/FreeComparisonFlow";
 import PageShell from "@/components/site/PageShell";
 import SectionHeader from "@/components/site/SectionHeader";
@@ -19,8 +21,10 @@ const checklist = [
 export default function FreeComparisonPage() {
   return (
     <PageShell>
-      <section className="border-b border-slate-200 bg-creamFinance py-14">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_420px] lg:items-end lg:px-8">
+      <section className="relative overflow-hidden border-b border-slate-200 bg-creamFinance py-14">
+        <BlueprintPattern />
+        <SectionGlow />
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_420px] lg:items-end lg:px-8">
           <SectionHeader
             level="h1"
             eyebrow="Get a Free Comparison"
@@ -46,8 +50,9 @@ export default function FreeComparisonPage() {
         </div>
       </section>
 
-      <section id="start" className="bg-white py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section id="start" className="relative overflow-hidden bg-white py-14">
+        <BlueprintPattern />
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <FreeComparisonFlow />
         </div>
       </section>

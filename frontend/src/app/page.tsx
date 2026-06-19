@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import BlueprintPattern from "@/components/backgrounds/BlueprintPattern";
+import ContactPattern from "@/components/backgrounds/ContactPattern";
+import HeroFinancePattern from "@/components/backgrounds/HeroFinancePattern";
+import SectionGlow from "@/components/backgrounds/SectionGlow";
+import ServicesPattern from "@/components/backgrounds/ServicesPattern";
 import ContactCard from "@/components/site/ContactCard";
 import CTASection from "@/components/site/CTASection";
 import FreeComparisonPreview from "@/components/site/FreeComparisonPreview";
 import PageShell from "@/components/site/PageShell";
 import SectionHeader from "@/components/site/SectionHeader";
 import ServiceCard from "@/components/site/ServiceCard";
-import { contactDetails, freeComparisonItems, processSteps, serviceOffers } from "@/lib/site";
+import { contactDetails, processSteps, serviceOffers } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Evalfuture. | Rent vs Buy Property Comparison UAE",
@@ -18,8 +23,10 @@ export default function Home() {
   return (
     <PageShell>
       <Hero />
-      <section className="bg-creamFinance py-14" aria-labelledby="free-includes">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:px-8">
+      <section className="relative overflow-hidden bg-creamFinance py-14" aria-labelledby="free-includes">
+        <BlueprintPattern />
+        <SectionGlow />
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:px-8">
           <div>
             <SectionHeader
               eyebrow="What your free comparison includes"
@@ -33,8 +40,10 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-white py-14" aria-labelledby="services-preview">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden bg-white py-14" aria-labelledby="services-preview">
+        <ServicesPattern />
+        <SectionGlow />
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeader
             eyebrow="Services"
             title="Choose the level of evaluation your property decision needs"
@@ -48,8 +57,9 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="border-y border-slate-200 bg-panelBlue/60 py-14" aria-labelledby="process-preview">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden border-y border-slate-200 bg-panelBlue/60 py-14" aria-labelledby="process-preview">
+        <BlueprintPattern />
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeader
             eyebrow="How it works"
             title="A practical route from assumptions to comparison"
@@ -69,8 +79,10 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-white py-14">
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[1fr_420px] lg:items-center lg:px-8">
+      <section className="relative overflow-hidden bg-white py-14">
+        <ContactPattern />
+        <SectionGlow />
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[1fr_420px] lg:items-center lg:px-8">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-tealFinance">
               Contact
@@ -154,43 +166,10 @@ function Hero() {
 function HeroBackground() {
   return (
     <div className="absolute inset-0" aria-hidden="true">
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,31,51,0.96)_0%,rgba(11,31,51,0.86)_45%,rgba(11,31,51,0.42)_100%)]" />
-      <div className="absolute bottom-0 right-0 top-0 hidden w-[58%] lg:block">
-        <div className="absolute inset-y-10 right-8 w-[78%] rounded-lg border border-white/15 bg-white/10 shadow-panel backdrop-blur-sm">
-          <div className="grid h-full grid-rows-[auto_1fr_auto] gap-5 p-6">
-            <div className="grid gap-3 sm:grid-cols-3">
-              {["Rent", "Buy", "Finance"].map((label) => (
-                <div key={label} className="rounded-md border border-white/15 bg-white/10 p-3">
-                  <p className="text-xs text-slate-300">{label}</p>
-                  <div className="mt-3 h-2 rounded-full bg-white/20">
-                    <div className="h-2 rounded-full bg-[#9FE3D9]" style={{ width: "68%" }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-10 items-end gap-2">
-              {freeComparisonItems.slice(0, 10).map((item, index) => (
-                <div
-                  key={item.title}
-                  className="rounded-t-md bg-[#9FE3D9]/80"
-                  style={{ height: `${42 + index * 5}%` }}
-                />
-              ))}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-md border border-white/15 bg-white/10 p-4">
-                <div className="h-2 w-24 rounded-full bg-white/30" />
-                <div className="mt-4 h-8 rounded-md bg-white/20" />
-              </div>
-              <div className="rounded-md border border-white/15 bg-white/10 p-4">
-                <div className="h-2 w-28 rounded-full bg-white/30" />
-                <div className="mt-4 h-8 rounded-md bg-inputAmber/80" />
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="absolute bottom-0 right-0 h-44 w-full bg-[linear-gradient(0deg,rgba(15,118,110,0.34),rgba(15,118,110,0))]" />
-      </div>
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,31,51,0.97)_0%,rgba(11,31,51,0.9)_52%,rgba(16,42,67,0.76)_100%)]" />
+      <div className="absolute -right-28 top-[-120px] h-[420px] w-[420px] rounded-full bg-tealFinance/[0.08] blur-3xl" />
+      <div className="absolute -bottom-28 left-[-120px] h-[360px] w-[360px] rounded-full bg-white/5 blur-3xl" />
+      <HeroFinancePattern />
     </div>
   );
 }

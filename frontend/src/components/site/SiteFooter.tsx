@@ -1,10 +1,12 @@
 import Link from "next/link";
+import FooterSkyline from "@/components/backgrounds/FooterSkyline";
 import { contactDetails, disclaimer, navItems } from "@/lib/site";
 
 export default function SiteFooter() {
   return (
-    <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 text-sm text-slateFinance sm:px-6 lg:grid-cols-[1fr_1fr_1.4fr] lg:px-8">
+    <footer className="relative overflow-hidden border-t border-slate-200 bg-white">
+      <FooterSkyline />
+      <div className="relative z-10 mx-auto grid max-w-7xl gap-8 px-4 py-8 text-sm text-slateFinance sm:px-6 lg:grid-cols-[1fr_1fr_1.4fr] lg:px-8">
         <div>
           <p className="text-lg font-semibold text-navy">Evalfuture.</p>
           <p className="mt-2 leading-6">
