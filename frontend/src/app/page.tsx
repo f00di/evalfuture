@@ -1,932 +1,428 @@
-"use client";
+import ModelDashboard from "@/components/ModelDashboard";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from "recharts";
-import {
-  buildDefaultMarketVariations,
-  calculatePreview,
-  defaultRequest,
-  EvaluationPreview,
-  EvaluationRequest,
-  fromPercentInput,
-  money,
-  percent,
-  resizeCustomVariations,
-  Scenario,
-  toPercentInput
-} from "@/lib/model";
-import { generateWorkbookBlob, workbookFilename } from "@/lib/workbook";
+const navItems = [
+  ["How It Works", "#how-it-works"],
+  ["Services", "#services"],
+  ["Free Comparison", "#free-comparison"],
+  ["Model Preview", "#model-preview"],
+  ["Contact", "#contact"]
+];
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "";
+const decisionFactors = [
+  "Mortgage payments",
+  "Down payments",
+  "Purchase costs",
+  "Interest over time",
+  "Rental income",
+  "Service charges",
+  "Early settlement fees",
+  "Market price rise/drop",
+  "Opportunity cost of savings",
+  "Exit/resale value"
+];
 
-type QuickFill = {
-  firstYearVariation: number;
-  secondYearVariation: number;
-  annualMovementAfterYearTwo: number;
-};
-
-const initialQuickFill: QuickFill = {
-  firstYearVariation: 0,
-  secondYearVariation: 0,
-  annualMovementAfterYearTwo: -0.02
-};
+const services = [
+  {
+    title: "Free Initial Comparison",
+    description:
+      "A quick rent-vs-buy comparison using your property price, expected rent, loan term, mortgage rate, service charges, and market assumptions.",
+    cta: "Get a Free Comparison",
+    href: "#free-comparison"
+  },
+  {
+    title: "Detailed Property Evaluation",
+    description:
+      "A more detailed quote/report based on the initial comparison, including year-by-year rental, financing, resale, and market movement assumptions.",
+    cta: "Request Detailed Evaluation",
+    href: "#contact"
+  },
+  {
+    title: "Consulting Session",
+    description:
+      "A one-to-one session to review the numbers, scenarios, financing structure, and property assumptions in more detail.",
+    cta: "Book a Consulting Session",
+    href: "#contact"
+  }
+];
 
 export default function Home() {
-  const [form, setForm] = useState<EvaluationRequest>(defaultRequest);
-  const [preview, setPreview] = useState<EvaluationPreview | null>(null);
-  const [quickFill, setQuickFill] = useState<QuickFill>(initialQuickFill);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [hasMounted, setHasMounted] = useState(false);
-
-  const validationErrors = useMemo(() => validateForm(form), [form]);
-  const defaultVariations = useMemo(
-    () => buildDefaultMarketVariations(form.loanTermYears),
-    [form.loanTermYears]
-  );
-
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  const requestPreview = useCallback(
-    async (request: EvaluationRequest, signal?: AbortSignal) => {
-      if (validateForm(request).length > 0) {
-        return;
-      }
-      setIsLoading(true);
-      setApiError(null);
-      try {
-        let data: EvaluationPreview | null = null;
-        if (API_BASE) {
-          try {
-            const response = await fetch(`${API_BASE}/api/preview`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(request),
-              signal
-            });
-            if (!response.ok) {
-              const detail = await response.json().catch(() => null);
-              throw new Error(detail?.detail ?? "Preview request failed");
-            }
-            data = (await response.json()) as EvaluationPreview;
-          } catch (error) {
-            if ((error as Error).name === "AbortError") {
-              throw error;
-            }
-          }
-        }
-        if (!signal?.aborted) {
-          setPreview(data ?? calculatePreview(request));
-        }
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          setApiError((error as Error).message);
-        }
-      } finally {
-        if (!signal?.aborted) {
-          setIsLoading(false);
-        }
-      }
-    },
-    []
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => {
-      void requestPreview(form, controller.signal);
-    }, 350);
-    return () => {
-      controller.abort();
-      window.clearTimeout(timeout);
-    };
-  }, [form, requestPreview]);
-
-  const updateField = <K extends keyof EvaluationRequest>(
-    key: K,
-    value: EvaluationRequest[K]
-  ) => {
-    setForm((current) => ({ ...current, [key]: value }));
-  };
-
-  const updateLoanTerm = (loanTermYears: number) => {
-    setForm((current) => ({
-      ...current,
-      loanTermYears,
-      customMarketVariations: resizeCustomVariations(
-        current.customMarketVariations,
-        Math.max(0, Math.min(40, Number.isFinite(loanTermYears) ? loanTermYears : 0))
-      )
-    }));
-  };
-
-  const updateCustomVariation = (index: number, value: string) => {
-    const parsed = fromPercentInput(value);
-    setForm((current) => {
-      const next = resizeCustomVariations(current.customMarketVariations, current.loanTermYears);
-      next[index] = parsed;
-      return { ...current, customMarketVariations: next };
-    });
-  };
-
-  const prefillCustomFromDefault = () => {
-    setForm((current) => ({
-      ...current,
-      customMarketVariations: buildDefaultMarketVariations(current.loanTermYears)
-    }));
-  };
-
-  const applyQuickFill = () => {
-    setForm((current) => {
-      const values: Array<number | null> = [];
-      for (let index = 0; index < current.loanTermYears; index += 1) {
-        if (index === 0) {
-          values.push(quickFill.firstYearVariation);
-        } else if (index === 1) {
-          values.push(quickFill.secondYearVariation);
-        } else {
-          values.push((values[index - 1] ?? 0) + quickFill.annualMovementAfterYearTwo);
-        }
-      }
-      return { ...current, customMarketVariations: values };
-    });
-  };
-
-  const downloadWorkbook = async () => {
-    if (validationErrors.length > 0) {
-      return;
-    }
-    setIsDownloading(true);
-    setApiError(null);
-    try {
-      let blob: Blob | null = null;
-      if (API_BASE) {
-        try {
-          const response = await fetch(`${API_BASE}/api/export`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(form)
-          });
-          if (!response.ok) {
-            const detail = await response.json().catch(() => null);
-            throw new Error(detail?.detail ?? "Workbook export failed");
-          }
-          blob = await response.blob();
-        } catch {
-          blob = null;
-        }
-      }
-      blob ??= generateWorkbookBlob(calculatePreview(form));
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = workbookFilename(form.propertyName);
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      setApiError((error as Error).message);
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  const chartData = useMemo(() => {
-    const rows = preview?.marketRows ?? [];
-    return rows.map((row) => ({
-      year: row.year,
-      defaultVariation: row.defaultMarketVariation * 100,
-      customVariation:
-        row.customMarketVariation === null ? null : row.customMarketVariation * 100,
-      selectedVariation: row.selectedMarketVariation * 100
-    }));
-  }, [preview]);
-
   return (
-    <main className="min-h-screen px-4 py-6 text-navy sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
-        <header className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white/82 p-5 shadow-panel md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-tealFinance/20 bg-tealFinance/10 px-3 py-1 text-sm font-semibold text-tealFinance">
-              Evalfuture.
-            </div>
-            <h1 className="text-3xl font-semibold tracking-normal text-navy md:text-4xl">
-              Evalfuture. Property Evaluation Model
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slateFinance">
-              Enter acquisition, mortgage, rental, and market assumptions, then preview the
-              model and export the two-sheet XLSX workbook.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => void requestPreview(form)}
-              disabled={isLoading || validationErrors.length > 0}
-              className="rounded-md bg-tealFinance px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b625b] disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              {isLoading ? "Previewing..." : "Preview Evaluation"}
-            </button>
-            <button
-              type="button"
-              onClick={() => void downloadWorkbook()}
-              disabled={isDownloading || validationErrors.length > 0}
-              className="rounded-md bg-navy px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#132f4a] disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              {isDownloading ? "Preparing XLSX..." : "Download XLSX"}
-            </button>
-          </div>
-        </header>
-
-        {(validationErrors.length > 0 || apiError) && (
-          <section className="rounded-lg border border-riskRed/30 bg-white p-4 text-sm text-riskRed">
-            {apiError && <p>{apiError}</p>}
-            {validationErrors.map((error) => (
-              <p key={error}>{error}</p>
-            ))}
-          </section>
-        )}
-
-        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <InputPanel
-            form={form}
-            updateField={updateField}
-            updateLoanTerm={updateLoanTerm}
-            quickFill={quickFill}
-            setQuickFill={setQuickFill}
-            applyQuickFill={applyQuickFill}
-            prefillCustomFromDefault={prefillCustomFromDefault}
-          />
-
-          <section className="flex min-w-0 flex-col gap-6">
-            <KpiCards preview={preview} />
-            <MarketSection
-              defaultVariations={defaultVariations}
-              form={form}
-              preview={preview}
-              updateCustomVariation={updateCustomVariation}
-              chartData={chartData}
-              hasMounted={hasMounted}
-            />
-            <ComparisonTable preview={preview} />
-            <AmortizationSummary preview={preview} />
-          </section>
-        </div>
-      </div>
+    <main className="min-h-screen text-navy">
+      <SiteHeader />
+      <HeroSection />
+      <ValueSection />
+      <HowItWorksSection />
+      <ServicesSection />
+      <FreeComparisonSection />
+      <ContactSection />
+      <SiteFooter />
     </main>
   );
 }
 
-function InputPanel({
-  form,
-  updateField,
-  updateLoanTerm,
-  quickFill,
-  setQuickFill,
-  applyQuickFill,
-  prefillCustomFromDefault
-}: {
-  form: EvaluationRequest;
-  updateField: <K extends keyof EvaluationRequest>(key: K, value: EvaluationRequest[K]) => void;
-  updateLoanTerm: (loanTermYears: number) => void;
-  quickFill: QuickFill;
-  setQuickFill: React.Dispatch<React.SetStateAction<QuickFill>>;
-  applyQuickFill: () => void;
-  prefillCustomFromDefault: () => void;
-}) {
+function SiteHeader() {
   return (
-    <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="mb-5 flex items-center justify-between gap-3 border-b border-slate-200 pb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-navy">Assumptions</h2>
-          <p className="mt-1 text-sm text-slateFinance">Yellow workbook inputs and scenario setup.</p>
-        </div>
-        <select
-          value={form.scenario}
-          onChange={(event) => updateField("scenario", event.target.value as Scenario)}
-          className="rounded-md border border-slate-300 bg-inputAmber px-3 py-2 text-sm font-semibold text-navy outline-none focus:border-tealFinance focus:ring-2 focus:ring-tealFinance/20"
-        >
-          <option value="Default">Default</option>
-          <option value="Custom">Custom</option>
-        </select>
-      </div>
-
-      <div className="grid gap-4">
-        <TextField
-          label="Property name / description"
-          value={form.propertyName}
-          onChange={(value) => updateField("propertyName", value)}
-        />
-        <NumberField
-          label="Property net purchase price"
-          value={form.propertyNetPurchasePrice}
-          onChange={(value) => updateField("propertyNetPurchasePrice", value)}
-        />
-        <NumberField
-          label="Area in sq. ft"
-          value={form.areaSqFt}
-          onChange={(value) => updateField("areaSqFt", value)}
-        />
-        <PercentField
-          label="Down payment"
-          value={form.downPaymentPct}
-          onChange={(value) => updateField("downPaymentPct", value ?? 0)}
-        />
-        <PercentField
-          label="Purchase cost"
-          value={form.purchaseCostPct}
-          onChange={(value) => updateField("purchaseCostPct", value ?? 0)}
-        />
-        <NumberField
-          label="Loan payment period in years"
-          value={form.loanTermYears}
-          min={1}
-          max={40}
-          step={1}
-          onChange={updateLoanTerm}
-        />
-        <PercentField
-          label="Mortgage rate"
-          value={form.mortgageRatePct}
-          onChange={(value) => updateField("mortgageRatePct", value ?? 0)}
-        />
-        <PercentField
-          label="Early payment fee"
-          value={form.earlyPaymentFeePct}
-          onChange={(value) => updateField("earlyPaymentFeePct", value ?? 0)}
-        />
-        <PercentField
-          label="Current rent of property per year"
-          value={form.rentYieldPct}
-          onChange={(value) => updateField("rentYieldPct", value ?? 0)}
-        />
-        <NumberField
-          label="Service charges AED per sq. ft per year"
-          value={form.serviceChargePerSqFt}
-          onChange={(value) => updateField("serviceChargePerSqFt", value)}
-        />
-        <PercentField
-          label="Profit rate savings can earn per year"
-          value={form.savingsProfitRatePct}
-          onChange={(value) => updateField("savingsProfitRatePct", value ?? 0)}
-        />
-      </div>
-
-      <div className="mt-6 rounded-lg border border-slate-200 bg-panelBlue/70 p-4">
-        <h3 className="text-sm font-semibold text-navy">Custom market quick fill</h3>
-        <div className="mt-3 grid gap-3">
-          <PercentField
-            label="First year variation"
-            value={quickFill.firstYearVariation}
-            allowNegative
-            onChange={(value) =>
-              setQuickFill((current) => ({ ...current, firstYearVariation: value ?? 0 }))
-            }
-          />
-          <PercentField
-            label="Second year variation"
-            value={quickFill.secondYearVariation}
-            allowNegative
-            onChange={(value) =>
-              setQuickFill((current) => ({ ...current, secondYearVariation: value ?? 0 }))
-            }
-          />
-          <PercentField
-            label="Annual movement after year 2"
-            value={quickFill.annualMovementAfterYearTwo}
-            allowNegative
-            onChange={(value) =>
-              setQuickFill((current) => ({
-                ...current,
-                annualMovementAfterYearTwo: value ?? 0
-              }))
-            }
-          />
-        </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          <button
-            type="button"
-            onClick={prefillCustomFromDefault}
-            className="rounded-md border border-tealFinance bg-white px-3 py-2 text-sm font-semibold text-tealFinance transition hover:bg-tealFinance hover:text-white"
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <a href="#top" className="text-xl font-semibold tracking-normal text-navy">
+          Evalfuture.
+        </a>
+        <nav className="flex flex-wrap items-center gap-2 text-sm text-slateFinance lg:justify-end">
+          {navItems.map(([label, href]) => (
+            <a
+              key={label}
+              href={href}
+              className="rounded-md px-2.5 py-2 font-medium transition hover:bg-panelBlue hover:text-navy"
+            >
+              {label}
+            </a>
+          ))}
+          <a
+            href="#free-comparison"
+            className="rounded-md bg-tealFinance px-4 py-2 font-semibold text-white shadow-sm transition hover:bg-[#0b625b]"
           >
-            Prefill Custom From Default
-          </button>
-          <button
-            type="button"
-            onClick={applyQuickFill}
-            className="rounded-md border border-goldFinance bg-white px-3 py-2 text-sm font-semibold text-navy transition hover:bg-inputAmber"
-          >
-            Apply Quick Fill
-          </button>
-        </div>
+            Get a Free Comparison
+          </a>
+        </nav>
       </div>
-    </aside>
+    </header>
   );
 }
 
-function TextField({
-  label,
-  value,
-  onChange
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
+function HeroSection() {
   return (
-    <label className="grid gap-1 text-sm">
-      <span className="font-medium text-slateFinance">{label}</span>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="rounded-md border border-slate-300 bg-inputAmber px-3 py-2 text-navy outline-none focus:border-tealFinance focus:ring-2 focus:ring-tealFinance/20"
-      />
-    </label>
-  );
-}
-
-function NumberField({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  step = 0.01
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-}) {
-  return (
-    <label className="grid gap-1 text-sm">
-      <span className="font-medium text-slateFinance">{label}</span>
-      <input
-        type="number"
-        value={Number.isFinite(value) ? value : ""}
-        min={min}
-        max={max}
-        step={step}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="numeric rounded-md border border-slate-300 bg-inputAmber px-3 py-2 text-navy outline-none focus:border-tealFinance focus:ring-2 focus:ring-tealFinance/20"
-      />
-    </label>
-  );
-}
-
-function PercentField({
-  label,
-  value,
-  onChange,
-  allowNegative = false
-}: {
-  label: string;
-  value: number | null;
-  onChange: (value: number | null) => void;
-  allowNegative?: boolean;
-}) {
-  return (
-    <label className="grid gap-1 text-sm">
-      <span className="font-medium text-slateFinance">{label}</span>
-      <div className="flex rounded-md border border-slate-300 bg-inputAmber focus-within:border-tealFinance focus-within:ring-2 focus-within:ring-tealFinance/20">
-        <input
-          type="number"
-          value={toPercentInput(value)}
-          min={allowNegative ? undefined : 0}
-          step={0.01}
-          onChange={(event) => onChange(fromPercentInput(event.target.value))}
-          className="numeric min-w-0 flex-1 rounded-l-md bg-transparent px-3 py-2 text-navy outline-none"
-        />
-        <span className="border-l border-slate-300 px-3 py-2 text-slateFinance">%</span>
-      </div>
-    </label>
-  );
-}
-
-function KpiCards({ preview }: { preview: EvaluationPreview | null }) {
-  const items = [
-    ["Principal loan", preview ? money(preview.derived.principalLoan) : "-"],
-    ["Monthly instalment", preview ? money(preview.derived.monthlyBankInstalment) : "-"],
-    ["Total bank payment", preview ? money(preview.derived.totalBankPayment) : "-"],
-    ["Total interest", preview ? money(preview.derived.totalInterest) : "-"],
-    [
-      "Final options comparison",
-      preview ? money(preview.finalOptionsComparison) : "-"
-    ]
-  ];
-  return (
-    <section className="grid gap-4 md:grid-cols-2 2xl:grid-cols-5">
-      {items.map(([label, value]) => (
-        <div key={label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-panel">
-          <p className="text-sm font-medium text-slateFinance">{label}</p>
-          <p className="numeric mt-3 text-2xl font-semibold text-navy">{value}</p>
+    <section id="top" className="border-b border-slate-200 bg-creamFinance">
+      <div className="mx-auto grid max-w-[1500px] gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(380px,520px)] lg:px-8 lg:py-16">
+        <div className="flex flex-col justify-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-tealFinance">
+            Property comparison and financing evaluation
+          </p>
+          <h1 className="mt-4 max-w-4xl text-4xl font-semibold leading-tight text-navy sm:text-5xl">
+            Compare Renting, Buying, and Financing Property with Confidence
+          </h1>
+          <p className="mt-5 max-w-3xl text-base leading-7 text-slateFinance sm:text-lg">
+            Evalfuture. helps property buyers, landlords, and investors understand the
+            long-term numbers behind renting, buying, mortgage financing, rental income, service
+            charges, interest, and market movement.
+          </p>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <a
+              href="#free-comparison"
+              className="rounded-md bg-tealFinance px-5 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b625b]"
+            >
+              Get a Free Comparison
+            </a>
+            <a
+              href="#model-preview"
+              className="rounded-md border border-navy px-5 py-3 text-center text-sm font-semibold text-navy transition hover:bg-navy hover:text-white"
+            >
+              View Model Preview
+            </a>
+          </div>
+          <p className="mt-5 max-w-2xl text-xs leading-5 text-slateFinance">
+            This comparison is for informational purposes only and does not constitute financial,
+            investment, mortgage, tax, or legal advice.
+          </p>
         </div>
-      ))}
+        <HeroDashboardVisual />
+      </div>
     </section>
   );
 }
 
-function MarketSection({
-  defaultVariations,
-  form,
-  preview,
-  updateCustomVariation,
-  chartData,
-  hasMounted
-}: {
-  defaultVariations: number[];
-  form: EvaluationRequest;
-  preview: EvaluationPreview | null;
-  updateCustomVariation: (index: number, value: string) => void;
-  chartData: Array<{
-    year: number;
-    defaultVariation: number;
-    customVariation: number | null;
-    selectedVariation: number;
-  }>;
-  hasMounted: boolean;
-}) {
+function HeroDashboardVisual() {
   return (
-    <section className="grid gap-6 2xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
-      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-tealFinance">
+            Evalfuture. snapshot
+          </p>
+          <h2 className="mt-1 text-xl font-semibold text-navy">Property decision view</h2>
+        </div>
+        <div className="rounded-md bg-inputAmber px-3 py-2 text-sm font-semibold text-navy">
+          AED
+        </div>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        {[
+          ["Rental outcome", "Net annual cost"],
+          ["Buying cash", "Initial capital view"],
+          ["Mortgage option", "Interest and principal"],
+          ["Resale scenario", "Market movement"]
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-lg border border-slate-200 bg-creamFinance p-4">
+            <p className="text-sm font-medium text-slateFinance">{label}</p>
+            <p className="mt-2 text-lg font-semibold text-navy">{value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 rounded-lg border border-slate-200 bg-panelBlue/70 p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-sm font-semibold text-navy">10-year comparison curve</p>
+          <p className="text-xs font-semibold text-positiveGreen">Preview</p>
+        </div>
+        <div className="flex h-32 items-end gap-2">
+          {[58, 64, 60, 72, 68, 82, 76, 88, 84, 94].map((height, index) => (
+            <div key={index} className="flex flex-1 flex-col items-center gap-2">
+              <div
+                className="w-full rounded-t-md bg-tealFinance"
+                style={{ height: `${height}%` }}
+              />
+              <span className="text-[10px] font-semibold text-slateFinance">{index + 1}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <MiniMetric label="Loan term" value="10 yrs" />
+        <MiniMetric label="Rent yield" value="7.5%" />
+        <MiniMetric label="Market" value="Default" />
+      </div>
+    </div>
+  );
+}
+
+function ValueSection() {
+  return (
+    <section className="bg-white py-14" aria-labelledby="value-heading">
+      <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
-            <h2 className="text-lg font-semibold text-navy">Market variation</h2>
-            <p className="text-sm text-slateFinance">
-              {form.loanTermYears} rows generated for the selected loan term.
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-tealFinance">
+              The decision is rarely simple
+            </p>
+            <h2 id="value-heading" className="mt-3 text-3xl font-semibold text-navy">
+              Property choices need more than a headline price
+            </h2>
+            <p className="mt-4 text-base leading-7 text-slateFinance">
+              Renting, renting out, buying outright, or buying with financing can each look
+              attractive until all cash flows are compared year by year. Evalfuture. simplifies
+              the complicated financial comparison into a practical view of costs, income,
+              financing, and potential resale outcomes.
             </p>
           </div>
-          <div className="rounded-md border border-slate-200 bg-creamFinance px-3 py-2 text-sm font-semibold text-tealFinance">
-            Scenario: {form.scenario}
-          </div>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="overflow-hidden rounded-lg border border-slate-200">
-            <TableTitle title="Default Market Variation" />
-            <table className="w-full text-sm">
-              <thead className="bg-navy text-white">
-                <tr>
-                  <Th>Year</Th>
-                  <Th>Variation</Th>
-                  <Th>Selling Price</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {defaultVariations.map((variation, index) => (
-                  <tr key={index} className="border-t border-slate-200">
-                    <Td>{index + 1}</Td>
-                    <Td>{percent(variation)}</Td>
-                    <Td>{money(form.propertyNetPurchasePrice * (1 + variation))}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="overflow-hidden rounded-lg border border-slate-200">
-            <TableTitle title="Custom Market Variation" />
-            <table className="w-full text-sm">
-              <thead className="bg-navy text-white">
-                <tr>
-                  <Th>Year</Th>
-                  <Th>Variation</Th>
-                  <Th>Selling Price</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {form.customMarketVariations.map((variation, index) => (
-                  <tr key={index} className="border-t border-slate-200">
-                    <Td>{index + 1}</Td>
-                    <td className="px-2 py-2">
-                      <div className="flex rounded-md border border-slate-300 bg-inputAmber">
-                        <input
-                          type="number"
-                          value={toPercentInput(variation)}
-                          step={0.01}
-                          onChange={(event) => updateCustomVariation(index, event.target.value)}
-                          className="numeric min-w-0 flex-1 rounded-l-md bg-transparent px-2 py-1 text-right outline-none focus:ring-2 focus:ring-tealFinance/20"
-                        />
-                        <span className="border-l border-slate-300 px-2 py-1 text-slateFinance">%</span>
-                      </div>
-                    </td>
-                    <Td>
-                      {variation === null
-                        ? "-"
-                        : money(form.propertyNetPurchasePrice * (1 + variation))}
-                    </Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 className="text-lg font-semibold text-navy">Property Market Price Fluctuations</h2>
-        <div className="mt-4 h-[360px]">
-          {hasMounted ? (
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <LineChart data={chartData} margin={{ top: 12, right: 18, bottom: 12, left: 0 }}>
-                <CartesianGrid stroke="#CBD5E1" strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="year"
-                  tick={{ fill: "#334155", fontSize: 12 }}
-                  axisLine={{ stroke: "#94A3B8" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: "#334155", fontSize: 12 }}
-                  axisLine={{ stroke: "#94A3B8" }}
-                  tickLine={false}
-                  tickFormatter={(value) => `${value}%`}
-                />
-                <Tooltip
-                  formatter={(value, name) => {
-                    const displayValue = typeof value === "number" ? `${value.toFixed(2)}%` : "-";
-                    return [displayValue, name === "defaultVariation" ? "Default" : "Custom"];
-                  }}
-                  labelFormatter={(label) => `Year ${label}`}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="defaultVariation"
-                  name="Default"
-                  stroke="#0F766E"
-                  strokeWidth={2.4}
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="customVariation"
-                  name="Custom"
-                  stroke="#D4AF37"
-                  strokeWidth={2.4}
-                  dot={{ r: 3 }}
-                  connectNulls={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-full rounded-lg border border-slate-200 bg-creamFinance" />
-          )}
-        </div>
-        {preview && (
-          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <Metric label="Net rental/year" value={money(preview.derived.netRentalYear)} />
-            <Metric label="Total cost" value={money(preview.derived.totalCost)} />
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function ComparisonTable({ preview }: { preview: EvaluationPreview | null }) {
-  if (!preview) {
-    return <EmptyPanel title="Rental vs Buying Comparison" />;
-  }
-
-  return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-navy">Rental vs Buying Comparison</h2>
-        <span className="text-sm font-semibold text-tealFinance">
-          {preview.comparisonRows.length} rows
-        </span>
-      </div>
-      <div className="scrollbar-soft overflow-x-auto">
-        <table className="min-w-[1500px] text-sm">
-          <thead>
-            <tr className="bg-panelBlue text-center text-navy">
-              <Th>Year</Th>
-              <Th colSpan={4}>Rental Option</Th>
-              <Th colSpan={9}>Buying Option</Th>
-              <Th>Options Comparison</Th>
-            </tr>
-            <tr className="bg-navy text-white">
-              {[
-                "Year",
-                "Rent",
-                "Funds Available",
-                "Earning on Funds",
-                "Net Total",
-                "Yearly Inst.",
-                "Interest",
-                "Principal",
-                "Total Principal",
-                "Total Cost",
-                "Settlement Cost",
-                "Market Variation",
-                "Market Price",
-                "Net Total / Resale",
-                "Comparison"
-              ].map((header) => (
-                <Th key={header}>{header}</Th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {preview.comparisonRows.map((row) => (
-              <tr key={row.year} className="border-t border-slate-200">
-                <Td>{row.year}</Td>
-                <Td>{money(row.rent)}</Td>
-                <Td>{money(row.fundsAvailable)}</Td>
-                <Td>{money(row.earningOnAvailableFunds)}</Td>
-                <Td>{money(row.rentalNetTotal)}</Td>
-                <Td>{money(row.yearlyBankInstalments)}</Td>
-                <Td>{money(row.bankInterest)}</Td>
-                <Td>{money(row.bankPrincipal)}</Td>
-                <Td>{money(row.totalPrincipal)}</Td>
-                <Td>{money(row.totalCost)}</Td>
-                <Td>{money(row.earlySettlementCost)}</Td>
-                <Td>{percent(row.marketVariation)}</Td>
-                <Td>{money(row.propertyMarketPrice)}</Td>
-                <Td>{money(row.netTotalResale)}</Td>
-                <Td className={row.optionsComparison < 0 ? "text-riskRed" : "text-positiveGreen"}>
-                  {money(row.optionsComparison)}
-                </Td>
-              </tr>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {decisionFactors.map((factor) => (
+              <div key={factor} className="rounded-lg border border-slate-200 bg-creamFinance p-4">
+                <p className="text-sm font-semibold text-navy">{factor}</p>
+              </div>
             ))}
-            <tr className="border-t border-goldFinance bg-inputAmber font-semibold">
-              <Td>Total</Td>
-              <Td>-</Td>
-              <Td>-</Td>
-              <Td>-</Td>
-              <Td>-</Td>
-              <Td>{money(preview.totals.yearlyBankInstalments)}</Td>
-              <Td>{money(preview.totals.bankInterest)}</Td>
-              <Td>{money(preview.totals.bankPrincipal)}</Td>
-              <Td>-</Td>
-              <Td>-</Td>
-              <Td>-</Td>
-              <Td>-</Td>
-              <Td>-</Td>
-              <Td>-</Td>
-              <Td>{money(preview.finalOptionsComparison)}</Td>
-            </tr>
-          </tbody>
-        </table>
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
-function AmortizationSummary({ preview }: { preview: EvaluationPreview | null }) {
-  if (!preview) {
-    return <EmptyPanel title="Amortization Calculator" />;
-  }
+function HowItWorksSection() {
+  const steps = [
+    [
+      "01",
+      "Share property assumptions",
+      "Enter price, rent, mortgage, service charge, and market movement assumptions."
+    ],
+    [
+      "02",
+      "Get a free initial comparison",
+      "Preview the direction of the rent-vs-buy and financing outcome before requesting deeper review."
+    ],
+    [
+      "03",
+      "Review rent-vs-buy outcomes",
+      "Compare rental cash flows, bank instalments, interest, principal, market value, and resale assumptions."
+    ],
+    [
+      "04",
+      "Move to detailed support",
+      "Upgrade to a Detailed Property Evaluation or Consulting Session when a decision needs more structure."
+    ]
+  ];
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+    <section id="how-it-works" className="border-y border-slate-200 bg-panelBlue/60 py-14">
+      <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
+        <SectionHeader
+          eyebrow="How Evalfuture. helps"
+          title="A clearer route from assumptions to decision support"
+          body="The flow starts with a free initial comparison and can extend into a more detailed evaluation or consulting session."
+        />
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {steps.map(([number, title, body]) => (
+            <article key={number} className="rounded-lg border border-slate-200 bg-white p-5 shadow-panel">
+              <div className="mb-5 inline-flex rounded-md bg-inputAmber px-3 py-2 text-sm font-semibold text-navy">
+                {number}
+              </div>
+              <h3 className="text-lg font-semibold text-navy">{title}</h3>
+              <p className="mt-3 text-sm leading-6 text-slateFinance">{body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ServicesSection() {
+  return (
+    <section id="services" className="bg-white py-14">
+      <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
+        <SectionHeader
+          eyebrow="Services"
+          title="Choose the level of evaluation your property decision needs"
+          body="Start with the free tool, then request deeper review when the numbers require more context."
+        />
+        <div className="mt-8 grid gap-5 lg:grid-cols-3">
+          {services.map((service) => (
+            <article key={service.title} className="flex rounded-lg border border-slate-200 bg-creamFinance p-5 shadow-panel">
+              <div className="flex flex-col">
+                <h3 className="text-xl font-semibold text-navy">{service.title}</h3>
+                <p className="mt-4 flex-1 text-sm leading-6 text-slateFinance">{service.description}</p>
+                <a
+                  href={service.href}
+                  className="mt-6 inline-flex w-fit rounded-md bg-navy px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#102A43]"
+                >
+                  {service.cta}
+                </a>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FreeComparisonSection() {
+  return (
+    <section id="free-comparison" className="border-y border-slate-200 bg-creamFinance py-14">
+      <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
+        <div className="mb-8 grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
+          <SectionHeader
+            eyebrow="Get a Free Comparison"
+            title="Preview the model before requesting a detailed review"
+            body="The free comparison estimates rental outcomes, loan payments, financing costs, service charges, market movement, and resale assumptions from your inputs."
+          />
+          <div className="rounded-lg border border-slate-200 bg-white p-5">
+            <p className="text-sm font-semibold text-navy">Included in the model preview</p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {[
+                "Rent-vs-buy outcome",
+                "Default and custom market variation",
+                "Mortgage interest and principal",
+                "Download Your Excel Comparison"
+              ].map((item) => (
+                <div key={item} className="rounded-md bg-panelBlue/70 px-3 py-2 text-sm text-slateFinance">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <ModelDashboard />
+      </div>
+    </section>
+  );
+}
+
+function ContactSection() {
+  return (
+    <section id="contact" className="bg-white py-14">
+      <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
+        <div className="grid gap-6 rounded-lg border border-slate-200 bg-navy p-6 text-white shadow-panel lg:grid-cols-[1fr_420px] lg:p-8">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#9FE3D9]">
+              Consulting and detailed review
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold">Need help reviewing a property decision?</h2>
+            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-200">
+              Speak with M. Kashif Ansari to review your property assumptions, financing
+              structure, rental income, and long-term comparison.
+            </p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <a
+                href="#free-comparison"
+                className="rounded-md bg-tealFinance px-5 py-3 text-center text-sm font-semibold text-white transition hover:bg-[#0b625b]"
+              >
+                Get a Free Comparison
+              </a>
+              <a
+                href="mailto:xxxxxx"
+                className="rounded-md border border-white/40 px-5 py-3 text-center text-sm font-semibold text-white transition hover:bg-white hover:text-navy"
+              >
+                Request Consulting Session
+              </a>
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/15 bg-white/10 p-5">
+            <h3 className="text-lg font-semibold">Contact</h3>
+            <dl className="mt-5 grid gap-4 text-sm">
+              <div>
+                <dt className="text-slate-300">Consultant</dt>
+                <dd className="mt-1 font-semibold text-white">M. Kashif Ansari</dd>
+              </div>
+              <div>
+                <dt className="text-slate-300">UAE</dt>
+                <dd className="mt-1 font-semibold text-white">xxxx</dd>
+              </div>
+              <div>
+                <dt className="text-slate-300">Email</dt>
+                <dd className="mt-1 font-semibold text-white">xxxxxx</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <footer className="border-t border-slate-200 bg-creamFinance py-8">
+      <div className="mx-auto grid max-w-[1500px] gap-6 px-4 text-sm text-slateFinance sm:px-6 lg:grid-cols-[1fr_1fr_1.2fr] lg:px-8">
         <div>
-          <h2 className="text-lg font-semibold text-navy">Amortization Calculator</h2>
-          <p className="text-sm text-slateFinance">Reference: https://mymortgage.ae/calculator</p>
+          <p className="text-lg font-semibold text-navy">Evalfuture.</p>
+          <p className="mt-2">Rent-vs-buy property comparison and financing evaluation</p>
         </div>
-        <span className="text-sm font-semibold text-tealFinance">
-          {preview.amortizationSummaryRows.length} years
-        </span>
+        <div>
+          <p className="font-semibold text-navy">Contact details</p>
+          <p className="mt-2">M. Kashif Ansari</p>
+          <p>UAE: xxxx</p>
+          <p>Email: xxxxxx</p>
+        </div>
+        <p className="leading-6">
+          This website provides informational comparisons only and does not constitute financial,
+          investment, mortgage, tax, or legal advice.
+        </p>
       </div>
-      <div className="scrollbar-soft overflow-x-auto">
-        <table className="min-w-[980px] text-sm">
-          <thead className="bg-navy text-white">
-            <tr>
-              {[
-                "Year",
-                "Interest",
-                "Principal",
-                "Ending Balance",
-                "Total Instalment",
-                "Interest / Principal",
-                "Decrease",
-                "Interest / Total Interest"
-              ].map((header) => (
-                <Th key={header}>{header}</Th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {preview.amortizationSummaryRows.map((row) => (
-              <tr key={row.year} className="border-t border-slate-200">
-                <Td>{row.year}</Td>
-                <Td>{money(row.interest)}</Td>
-                <Td>{money(row.principal)}</Td>
-                <Td>{money(row.endingBalance)}</Td>
-                <Td>{money(row.totalInstalment)}</Td>
-                <Td>{percent(row.interestPrincipalRatio)}</Td>
-                <Td>{money(row.decrease)}</Td>
-                <Td>{percent(row.interestTotalInterestRatio)}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+    </footer>
   );
 }
 
-function TableTitle({ title }: { title: string }) {
+function SectionHeader({
+  eyebrow,
+  title,
+  body
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+}) {
   return (
-    <div className="bg-tealFinance px-3 py-2 text-center text-sm font-semibold text-white">
-      {title}
+    <div>
+      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-tealFinance">{eyebrow}</p>
+      <h2 className="mt-3 max-w-3xl text-3xl font-semibold leading-tight text-navy">{title}</h2>
+      <p className="mt-4 max-w-3xl text-base leading-7 text-slateFinance">{body}</p>
     </div>
   );
 }
 
-function Th({
-  children,
-  colSpan
-}: {
-  children: React.ReactNode;
-  colSpan?: number;
-}) {
+function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <th colSpan={colSpan} className="px-3 py-2 text-left text-xs font-semibold uppercase">
-      {children}
-    </th>
-  );
-}
-
-function Td({
-  children,
-  className = ""
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <td className={`numeric whitespace-nowrap px-3 py-2 text-right text-slateFinance ${className}`}>
-      {children}
-    </td>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-creamFinance px-3 py-2">
+    <div className="rounded-lg border border-slate-200 bg-white p-3">
       <p className="text-xs font-semibold uppercase text-slateFinance">{label}</p>
-      <p className="numeric mt-1 text-sm font-semibold text-navy">{value}</p>
+      <p className="mt-1 text-base font-semibold text-navy">{value}</p>
     </div>
   );
-}
-
-function EmptyPanel({ title }: { title: string }) {
-  return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-panel">
-      <h2 className="text-lg font-semibold text-navy">{title}</h2>
-      <p className="mt-2 text-sm text-slateFinance">Preview data will appear after validation.</p>
-    </section>
-  );
-}
-
-function validateForm(form: EvaluationRequest): string[] {
-  const errors: string[] = [];
-  if (!form.propertyName.trim()) {
-    errors.push("Property name is required.");
-  }
-  if (!Number.isFinite(form.propertyNetPurchasePrice) || form.propertyNetPurchasePrice <= 0) {
-    errors.push("Property net purchase price must be positive.");
-  }
-  if (!Number.isFinite(form.areaSqFt) || form.areaSqFt <= 0) {
-    errors.push("Area must be positive.");
-  }
-  if (!Number.isInteger(form.loanTermYears) || form.loanTermYears < 1 || form.loanTermYears > 40) {
-    errors.push("Loan term must be an integer from 1 to 40.");
-  }
-  const nonMarketPercentages = [
-    ["Down payment", form.downPaymentPct],
-    ["Purchase cost", form.purchaseCostPct],
-    ["Mortgage rate", form.mortgageRatePct],
-    ["Early payment fee", form.earlyPaymentFeePct],
-    ["Current rent", form.rentYieldPct],
-    ["Savings profit rate", form.savingsProfitRatePct]
-  ] as const;
-  for (const [label, value] of nonMarketPercentages) {
-    if (!Number.isFinite(value) || value < 0) {
-      errors.push(`${label} percentage cannot be negative.`);
-    }
-  }
-  if (form.customMarketVariations.length !== form.loanTermYears) {
-    errors.push("Custom market variation rows must match loan term.");
-  }
-  if (!Number.isFinite(form.serviceChargePerSqFt) || form.serviceChargePerSqFt < 0) {
-    errors.push("Service charges must be zero or positive.");
-  }
-  return errors;
 }

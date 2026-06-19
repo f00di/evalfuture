@@ -8,6 +8,10 @@
   --foreground: #0b1f33;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 * {
   box-sizing: border-box;
 }
