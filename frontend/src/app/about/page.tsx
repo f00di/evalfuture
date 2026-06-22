@@ -9,7 +9,7 @@ import SectionHeader from "@/components/site/SectionHeader";
 export const metadata: Metadata = {
   title: "About | Evalfuture.",
   description:
-    "About Evalfuture. and M. Kashif Ansari, focused on property comparison, rent-vs-buy analysis, and UAE property decisions."
+    "About Evalfuture. and M. Kashif Ansari, focused on property comparison and rent-vs-buy analysis."
 };
 
 export default function AboutPage() {
@@ -22,7 +22,7 @@ export default function AboutPage() {
           <SectionHeader
             level="h1"
             eyebrow="About"
-            title="Evalfuture. supports clearer UAE property decisions"
+            title="Evalfuture. supports clearer property decisions"
             body="The purpose is to help clients compare renting, buying outright, mortgage financing, rental income, service charges, market movement, and long-term resale outcomes in one structured view."
           />
         </div>
@@ -34,14 +34,14 @@ export default function AboutPage() {
           <div className="max-w-3xl">
             <h2 className="text-2xl font-semibold text-navy">Property comparison first</h2>
             <p className="mt-4 text-base leading-7 text-slateFinance">
-              Evalfuture. is built around a practical rent-vs-buy model for clients reviewing UAE
+              Evalfuture. is built around a practical rent-vs-buy model for clients reviewing
               property decisions. It focuses on the assumptions that usually change the outcome:
               financing structure, interest, purchase costs, service charges, rental returns,
               savings opportunity cost, and market rise/drop scenarios.
             </p>
             <p className="mt-4 text-base leading-7 text-slateFinance">
               M. Kashif Ansari is the contact person for detailed evaluation and consulting
-              requests. The free comparison is an informational starting point and can be followed
+              requests. The initial comparison is an informational starting point and can be followed
               by a more detailed review when a property decision needs additional structure.
             </p>
           </div>
@@ -50,12 +50,10 @@ export default function AboutPage() {
       </section>
 
       <CTASection
-        title="Start with a free property comparison"
-        body="Use the initial comparison to review the direction of the numbers before requesting deeper support."
-        primaryLabel="Get a Free Comparison"
-        primaryHref="/free-comparison"
-        secondaryLabel="Contact"
-        secondaryHref="/contact"
+        title="Review a property decision with Evalfuture."
+        body="Use the initial comparison to review the direction of the numbers, then contact Evalfuture. when deeper support is needed."
+        primaryLabel="Contact"
+        primaryHref="/contact"
       />
     </PageShell>
   );

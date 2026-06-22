@@ -5,7 +5,7 @@ export const disclaimer =
 
 export const contactDetails = {
   name: "M. Kashif Ansari",
-  uae: "xxxx",
+  phone: "xxxx",
   email: "xxxxxx"
 };
 
@@ -52,7 +52,7 @@ export const serviceOffers = [
   {
     title: "Free Initial Comparison",
     body: "A quick rent-vs-buy comparison using basic property, rental, financing, service charge, and market assumptions.",
-    cta: "Get a Free Comparison",
+    cta: "Open Comparison Tool",
     href: "/free-comparison"
   },
   {
@@ -88,6 +88,6 @@ export const processSteps = [
   },
   {
     title: "Request detailed support",
-    body: "Move from the free comparison to a detailed property evaluation or consulting session."
+    body: "Move from the initial comparison to a detailed property evaluation or consulting session."
   }
 ];

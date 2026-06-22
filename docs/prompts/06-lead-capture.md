@@ -23,7 +23,7 @@ Requirements:
   Property location
   Purpose: buy / rent / invest / rent out / refinance
 - Keep contact placeholders unless real values are provided:
-  UAE: xxxx
+  Phone: xxxx
   Email: xxxxxx
 - If no backend is available, store locally or add a clear "Send request" placeholder.
 - Do not collect more data than needed.

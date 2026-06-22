@@ -24,7 +24,7 @@ export default function ServicesPage() {
             level="h1"
             eyebrow="Services"
             title="Property comparison services for clearer decisions"
-            body="Start with a free initial comparison, then request deeper evaluation or consultation when your property decision needs more context."
+            body="Start with an initial comparison, then request deeper evaluation or consultation when your property decision needs more context."
           />
         </div>
       </section>
@@ -39,12 +39,10 @@ export default function ServicesPage() {
       </section>
 
       <CTASection
-        title="Begin with the free comparison"
-        body="Use the compact comparison first, then decide whether a detailed evaluation or consulting session is needed."
-        primaryLabel="Get a Free Comparison"
-        primaryHref="/free-comparison"
-        secondaryLabel="Contact"
-        secondaryHref="/contact"
+        title="Discuss the right level of support"
+        body="Use the service options above to decide whether a detailed evaluation or consulting session is needed."
+        primaryLabel="Contact"
+        primaryHref="/contact"
       />
     </PageShell>
   );

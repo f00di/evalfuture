@@ -14,7 +14,7 @@ import ServiceCard from "@/components/site/ServiceCard";
 import { contactDetails, processSteps, serviceOffers } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Evalfuture. | Rent vs Buy Property Comparison UAE",
+  title: "Evalfuture. | Rent vs Buy Property Comparison",
   description:
     "Compare renting, buying, financing, rental income, mortgage interest, service charges, and market movement with Evalfuture."
 };
@@ -35,7 +35,7 @@ export default function Home() {
             />
           </div>
           <div id="free-includes">
-            <FreeComparisonPreview ctaLabel="Get Yours Free" />
+            <FreeComparisonPreview showCta={false} />
           </div>
         </div>
       </section>
@@ -47,7 +47,7 @@ export default function Home() {
           <SectionHeader
             eyebrow="Services"
             title="Choose the level of evaluation your property decision needs"
-            body="Use the free comparison first, then request deeper support when the assumptions need more review."
+            body="Start with a structured comparison, then request deeper support when the assumptions need more review."
           />
           <div id="services-preview" className="mt-8 grid gap-5 lg:grid-cols-3">
             {serviceOffers.slice(0, 3).map((service) => (
@@ -97,16 +97,16 @@ export default function Home() {
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/free-comparison"
+                href="/contact"
                 className="rounded-md bg-tealFinance px-5 py-3 text-center text-sm font-semibold text-white transition hover:bg-[#0b625b]"
               >
-                Get a Free Comparison
+                Contact
               </Link>
               <Link
-                href="/contact"
+                href="/services"
                 className="rounded-md border border-navy px-5 py-3 text-center text-sm font-semibold text-navy transition hover:bg-navy hover:text-white"
               >
-                Contact
+                Explore Services
               </Link>
             </div>
           </div>
@@ -118,10 +118,10 @@ export default function Home() {
         eyebrow="Free Initial Comparison"
         title="Start with the numbers before deciding your next property move"
         body="Compare rent, buy, financing, service charge, market movement, and resale assumptions in one structured flow."
-        primaryLabel="Get a Free Comparison"
-        primaryHref="/free-comparison"
-        secondaryLabel="Explore Services"
-        secondaryHref="/services"
+        primaryLabel="Explore Services"
+        primaryHref="/services"
+        secondaryLabel="Contact"
+        secondaryHref="/contact"
       />
     </PageShell>
   );

@@ -51,10 +51,12 @@ export default function HowItWorksPage() {
       </section>
 
       <CTASection
-        title="Open the free comparison when you are ready"
-        body="Preview the main assumptions first, then start the model to compare rent, buy, finance, and resale outcomes."
-        primaryLabel="Start My Free Comparison"
-        primaryHref="/free-comparison"
+        title="Choose the next step"
+        body="Review the process, then explore the service options or contact Evalfuture. for a detailed property review."
+        primaryLabel="Explore Services"
+        primaryHref="/services"
+        secondaryLabel="Contact"
+        secondaryHref="/contact"
       />
     </PageShell>
   );

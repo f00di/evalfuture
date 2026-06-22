@@ -36,12 +36,6 @@ export default function SiteHeader() {
               {item.label}
             </NavLink>
           ))}
-          <Link
-            href="/free-comparison"
-            className="ml-2 rounded-md bg-tealFinance px-4 py-2.5 font-semibold text-white shadow-sm transition hover:bg-[#0b625b]"
-          >
-            Get a Free Comparison
-          </Link>
         </nav>
       </div>
 
@@ -57,13 +51,6 @@ export default function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          <Link
-            href="/free-comparison"
-            onClick={() => setIsOpen(false)}
-            className="mt-1 rounded-md bg-tealFinance px-3 py-2.5 text-center font-semibold text-white shadow-sm"
-          >
-            Get a Free Comparison
-          </Link>
         </nav>
       )}
     </header>

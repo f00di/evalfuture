@@ -17,7 +17,7 @@ Goal: Improve copy while preserving brand, compliance tone, and UI structure.
 
 Requirements:
 - Preserve the brand name "Evalfuture." with the trailing period.
-- Main CTA must be "Get a Free Comparison."
+- Main CTA should clearly open the comparison flow.
 - Use these phrases where appropriate:
   Free Initial Comparison
   Detailed Property Evaluation
@@ -30,7 +30,7 @@ Requirements:
   This comparison is for informational purposes only and does not constitute financial, investment, mortgage, tax, or legal advice.
 - Keep contact details:
   M. Kashif Ansari
-  UAE: xxxx
+  Phone: xxxx
   Email: xxxxxx
 
 Inspect current page copy before editing. Keep changes scoped and run available checks.

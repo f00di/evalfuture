@@ -18,9 +18,9 @@ export default function ContactCard({ inverse = false }: { inverse?: boolean }) 
           </dd>
         </div>
         <div>
-          <dt className={inverse ? "text-slate-300" : "text-slateFinance"}>UAE</dt>
+          <dt className={inverse ? "text-slate-300" : "text-slateFinance"}>Phone</dt>
           <dd className={`mt-1 font-semibold ${inverse ? "text-white" : "text-navy"}`}>
-            {contactDetails.uae}
+            {contactDetails.phone}
           </dd>
         </div>
         <div>

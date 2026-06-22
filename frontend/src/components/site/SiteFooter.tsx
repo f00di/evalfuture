@@ -16,7 +16,7 @@ export default function SiteFooter() {
         <div>
           <p className="font-semibold text-navy">Contact details</p>
           <p className="mt-2">{contactDetails.name}</p>
-          <p>UAE: {contactDetails.uae}</p>
+          <p>Phone: {contactDetails.phone}</p>
           <p>Email: {contactDetails.email}</p>
         </div>
         <div>

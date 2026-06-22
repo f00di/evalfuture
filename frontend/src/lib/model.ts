@@ -4,8 +4,22 @@ export type AmountPercentSource = "amount" | "percent";
 
 export const SQM_TO_SQFT = 10.7639;
 
+export const currencyOptions = [
+  { code: "USD", label: "USD - US dollar" },
+  { code: "EUR", label: "EUR - Euro" },
+  { code: "GBP", label: "GBP - British pound" },
+  { code: "CAD", label: "CAD - Canadian dollar" },
+  { code: "AUD", label: "AUD - Australian dollar" },
+  { code: "SGD", label: "SGD - Singapore dollar" },
+  { code: "INR", label: "INR - Indian rupee" }
+] as const;
+
+export type CurrencyCode = (typeof currencyOptions)[number]["code"];
+export const DEFAULT_CURRENCY_CODE: CurrencyCode = "USD";
+
 export interface EvaluationRequest {
   propertyName: string;
+  currencyCode: CurrencyCode;
   propertyNetPurchasePrice: number;
   areaValue: number;
   areaUnit: AreaUnit;
@@ -113,6 +127,7 @@ export interface EvaluationPreview {
 
 export const defaultRequest: EvaluationRequest = {
   propertyName: "2 BR Apartment in Reem Island",
+  currencyCode: DEFAULT_CURRENCY_CODE,
   propertyNetPurchasePrice: 1500000,
   areaValue: 1200,
   areaUnit: "sq. ft",
@@ -174,22 +189,26 @@ export function fromPercentInput(value: string): number | null {
   return Number.isFinite(parsed) ? parsed / 100 : null;
 }
 
-export function money(value: number): string {
-  return new Intl.NumberFormat("en-AE", {
-    style: "currency",
-    currency: "AED",
-    maximumFractionDigits: 2
-  }).format(value);
+export function money(value: number, currencyCode: CurrencyCode = DEFAULT_CURRENCY_CODE): string {
+  try {
+    return new Intl.NumberFormat("en", {
+      style: "currency",
+      currency: currencyCode,
+      maximumFractionDigits: 2
+    }).format(value);
+  } catch {
+    return `${currencyCode} ${numberValue(value)}`;
+  }
 }
 
 export function numberValue(value: number): string {
-  return new Intl.NumberFormat("en-AE", {
+  return new Intl.NumberFormat("en", {
     maximumFractionDigits: 2
   }).format(value);
 }
 
 export function percent(value: number): string {
-  return new Intl.NumberFormat("en-AE", {
+  return new Intl.NumberFormat("en", {
     style: "percent",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2

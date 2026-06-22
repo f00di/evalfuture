@@ -15,7 +15,9 @@ import CompactMetricCard from "@/components/site/CompactMetricCard";
 import {
   AmountPercentSource,
   AreaUnit,
+  CurrencyCode,
   calculatePreview,
+  currencyOptions,
   defaultRequest,
   EvaluationPreview,
   EvaluationRequest,
@@ -36,6 +38,7 @@ type AmountPercentValue = {
 
 type FieldErrors = {
   propertyName: boolean;
+  currencyCode: boolean;
   propertyNetPurchasePrice: boolean;
   areaValue: boolean;
   areaUnit: boolean;
@@ -308,6 +311,11 @@ function AssumptionsForm({
           invalid={fieldErrors?.propertyName}
           onChange={(value) => updateField("propertyName", value)}
         />
+        <CurrencySelect
+          value={form.currencyCode}
+          invalid={fieldErrors?.currencyCode}
+          onChange={(value) => updateField("currencyCode", value)}
+        />
         <div className="grid min-w-0 gap-3 lg:grid-cols-2">
           <MoneyInput
             label="Property net purchase price"
@@ -393,14 +401,14 @@ function AssumptionsForm({
           <div className="xl:col-span-2">
             <AmountOrPercentInput
               label="Early payment fee"
-              amountLabel="AED cap/value"
+              amountLabel="Currency cap/value"
               amount={form.earlyPaymentFeeAmount}
               percent={form.earlyPaymentFeePct}
               source={form.earlyPaymentFeeSource}
               base={principalLoan}
               invalid={fieldErrors?.earlyPaymentFee}
               preserveAmountOnPercentChange
-              helperText="Used to estimate early settlement cost. UAE mortgage products may apply caps or lender-specific rules."
+              helperText="Used to estimate early settlement cost. Financing products may apply caps or lender-specific rules."
               onChange={(value) =>
                 updateAmountPercent(
                   {
@@ -440,7 +448,7 @@ function AssumptionsForm({
             }
           />
           <MoneyInput
-            label="Service charges AED per sq. ft per year"
+            label="Service charges per sq. ft per year"
             value={form.serviceChargePerSqFt}
             invalid={fieldErrors?.serviceChargePerSqFt}
             onChange={(value) => updateField("serviceChargePerSqFt", value)}
@@ -448,13 +456,13 @@ function AssumptionsForm({
           <div className="xl:col-span-2">
             <AmountOrPercentInput
               label="Profit rate savings can earn per year"
-              amountLabel="First-year AED earnings"
+              amountLabel="First-year earnings"
               amount={form.savingsProfitAmount}
               percent={form.savingsProfitRatePct}
               source={form.savingsProfitRateSource}
               base={initialFunds}
               invalid={fieldErrors?.savingsProfitRate}
-              helperText="AED value is converted into an equivalent first-year rate based on down payment plus purchase cost."
+              helperText="Currency value is converted into an equivalent first-year rate based on down payment plus purchase cost."
               onChange={(value) =>
                 updateAmountPercent(
                   {
@@ -568,7 +576,11 @@ function ResultsSection({
             />
           </CalculatorBlock>
           <CalculatorBlock title="Property Market Price Fluctuations">
-            <MarketChart chartData={chartData} hasMounted={hasMounted} />
+            <MarketChart
+              chartData={chartData}
+              currencyCode={preview.inputs.currencyCode}
+              hasMounted={hasMounted}
+            />
           </CalculatorBlock>
         </div>
 
@@ -705,7 +717,7 @@ function AmountOrPercentInput({
   percent: percentValue,
   source,
   base,
-  amountLabel = "AED value",
+  amountLabel = "Currency value",
   percentLabel = "%",
   helperText,
   invalid,
@@ -836,6 +848,33 @@ function AreaUnitSelect({
   );
 }
 
+function CurrencySelect({
+  value,
+  invalid,
+  onChange
+}: {
+  value: CurrencyCode;
+  invalid?: boolean;
+  onChange: (value: CurrencyCode) => void;
+}) {
+  return (
+    <label className="grid min-w-0 gap-1.5 text-sm">
+      <span className="font-medium leading-5 text-slateFinance">Currency</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as CurrencyCode)}
+        className={`${inputClass} ${invalid ? invalidInputClass : ""}`}
+      >
+        {currencyOptions.map((option) => (
+          <option key={option.code} value={option.code}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function InputWithSuffix({
   value,
   suffix,
@@ -934,6 +973,7 @@ function NumericTextInput({
 
 function KpiCards({ preview }: { preview: EvaluationPreview }) {
   const finalRow = preview.comparisonRows[preview.comparisonRows.length - 1];
+  const currencyCode = preview.inputs.currencyCode;
   const items: Array<{
     label: string;
     value: string;
@@ -942,48 +982,48 @@ function KpiCards({ preview }: { preview: EvaluationPreview }) {
   }> = [
     {
       label: "Principal loan",
-      value: compactMoney(preview.derived.principalLoan),
-      detail: money(preview.derived.principalLoan)
+      value: compactMoney(preview.derived.principalLoan, currencyCode),
+      detail: money(preview.derived.principalLoan, currencyCode)
     },
     {
       label: "Monthly instalment",
-      value: compactMoney(preview.derived.monthlyBankInstalment),
-      detail: money(preview.derived.monthlyBankInstalment)
+      value: compactMoney(preview.derived.monthlyBankInstalment, currencyCode),
+      detail: money(preview.derived.monthlyBankInstalment, currencyCode)
     },
     {
       label: "Total bank payment",
-      value: compactMoney(preview.derived.totalBankPayment),
-      detail: money(preview.derived.totalBankPayment)
+      value: compactMoney(preview.derived.totalBankPayment, currencyCode),
+      detail: money(preview.derived.totalBankPayment, currencyCode)
     },
     {
       label: "Total interest",
-      value: compactMoney(preview.derived.totalInterest),
-      detail: money(preview.derived.totalInterest)
+      value: compactMoney(preview.derived.totalInterest, currencyCode),
+      detail: money(preview.derived.totalInterest, currencyCode)
     },
     {
       label: "Down payment",
-      value: compactMoney(preview.derived.downPaymentAmount),
-      detail: money(preview.derived.downPaymentAmount)
+      value: compactMoney(preview.derived.downPaymentAmount, currencyCode),
+      detail: money(preview.derived.downPaymentAmount, currencyCode)
     },
     {
       label: "Purchase cost",
-      value: compactMoney(preview.derived.purchaseCostAmount),
-      detail: money(preview.derived.purchaseCostAmount)
+      value: compactMoney(preview.derived.purchaseCostAmount, currencyCode),
+      detail: money(preview.derived.purchaseCostAmount, currencyCode)
     },
     {
       label: "Net rental/year",
-      value: compactMoney(preview.derived.netRentalYear),
-      detail: money(preview.derived.netRentalYear)
+      value: compactMoney(preview.derived.netRentalYear, currencyCode),
+      detail: money(preview.derived.netRentalYear, currencyCode)
     },
     {
       label: "Total cost",
-      value: compactMoney(preview.derived.totalCost),
-      detail: money(preview.derived.totalCost)
+      value: compactMoney(preview.derived.totalCost, currencyCode),
+      detail: money(preview.derived.totalCost, currencyCode)
     },
     {
       label: `Year ${finalRow.year} options comparison`,
-      value: compactMoney(preview.finalOptionsComparison),
-      detail: money(preview.finalOptionsComparison),
+      value: compactMoney(preview.finalOptionsComparison, currencyCode),
+      detail: money(preview.finalOptionsComparison, currencyCode),
       tone: preview.finalOptionsComparison < 0 ? "risk" : "positive"
     }
   ];
@@ -1014,6 +1054,8 @@ function MarketVariationTable({
   resetCustomVariation: (index: number) => void;
   resetMarketVariations: () => void;
 }) {
+  const currencyCode = preview.inputs.currencyCode;
+
   return (
     <div className="min-w-0">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1074,7 +1116,7 @@ function MarketVariationTable({
                       </div>
                     </div>
                   </td>
-                  <Td>{money(row.selectedSellingPrice)}</Td>
+                  <Td>{money(row.selectedSellingPrice, currencyCode)}</Td>
                 </tr>
               );
             })}
@@ -1087,9 +1129,11 @@ function MarketVariationTable({
 
 function MarketChart({
   chartData,
+  currencyCode,
   hasMounted
 }: {
   chartData: Array<{ year: number; variation: number; sellingPrice: number }>;
+  currencyCode: CurrencyCode;
   hasMounted: boolean;
 }) {
   return (
@@ -1109,12 +1153,12 @@ function MarketChart({
               axisLine={{ stroke: "#94A3B8" }}
               tickLine={false}
               width={74}
-              tickFormatter={(value) => compactMoney(Number(value)).replace("AED ", "")}
+              tickFormatter={(value) => compactMoney(Number(value), currencyCode)}
             />
             <Tooltip
               formatter={(value, name) => {
                 if (name === "sellingPrice" && typeof value === "number") {
-                  return [money(value), "Selling price"];
+                  return [money(value, currencyCode), "Selling price"];
                 }
                 return [String(value), String(name)];
               }}
@@ -1162,6 +1206,8 @@ function DetailedTables({ preview }: { preview: EvaluationPreview }) {
 }
 
 function ComparisonTable({ preview }: { preview: EvaluationPreview }) {
+  const currencyCode = preview.inputs.currencyCode;
+
   return (
     <div className="min-w-0">
       <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -1210,21 +1256,21 @@ function ComparisonTable({ preview }: { preview: EvaluationPreview }) {
             {preview.comparisonRows.map((row) => (
               <tr key={row.year} className="border-t border-slate-200">
                 <Td>{row.year}</Td>
-                <Td>{money(row.rent)}</Td>
-                <Td>{money(row.fundsAvailable)}</Td>
-                <Td>{money(row.earningOnAvailableFunds)}</Td>
-                <Td>{money(row.rentalNetTotal)}</Td>
-                <Td>{money(row.yearlyBankInstalments)}</Td>
-                <Td>{money(row.bankInterest)}</Td>
-                <Td>{money(row.bankPrincipal)}</Td>
-                <Td>{money(row.totalPrincipal)}</Td>
-                <Td>{money(row.totalCost)}</Td>
-                <Td>{money(row.earlySettlementCost)}</Td>
+                <Td>{money(row.rent, currencyCode)}</Td>
+                <Td>{money(row.fundsAvailable, currencyCode)}</Td>
+                <Td>{money(row.earningOnAvailableFunds, currencyCode)}</Td>
+                <Td>{money(row.rentalNetTotal, currencyCode)}</Td>
+                <Td>{money(row.yearlyBankInstalments, currencyCode)}</Td>
+                <Td>{money(row.bankInterest, currencyCode)}</Td>
+                <Td>{money(row.bankPrincipal, currencyCode)}</Td>
+                <Td>{money(row.totalPrincipal, currencyCode)}</Td>
+                <Td>{money(row.totalCost, currencyCode)}</Td>
+                <Td>{money(row.earlySettlementCost, currencyCode)}</Td>
                 <Td>{percent(row.marketVariation)}</Td>
-                <Td>{money(row.propertyMarketPrice)}</Td>
-                <Td>{money(row.netTotalResale)}</Td>
+                <Td>{money(row.propertyMarketPrice, currencyCode)}</Td>
+                <Td>{money(row.netTotalResale, currencyCode)}</Td>
                 <Td className={row.optionsComparison < 0 ? "text-riskRed" : "text-positiveGreen"}>
-                  {money(row.optionsComparison)}
+                  {money(row.optionsComparison, currencyCode)}
                 </Td>
               </tr>
             ))}
@@ -1234,16 +1280,16 @@ function ComparisonTable({ preview }: { preview: EvaluationPreview }) {
               <Td>-</Td>
               <Td>-</Td>
               <Td>-</Td>
-              <Td>{money(preview.totals.yearlyBankInstalments)}</Td>
-              <Td>{money(preview.totals.bankInterest)}</Td>
-              <Td>{money(preview.totals.bankPrincipal)}</Td>
+              <Td>{money(preview.totals.yearlyBankInstalments, currencyCode)}</Td>
+              <Td>{money(preview.totals.bankInterest, currencyCode)}</Td>
+              <Td>{money(preview.totals.bankPrincipal, currencyCode)}</Td>
               <Td>-</Td>
               <Td>-</Td>
               <Td>-</Td>
               <Td>-</Td>
               <Td>-</Td>
               <Td>-</Td>
-              <Td>{money(preview.finalOptionsComparison)}</Td>
+              <Td>{money(preview.finalOptionsComparison, currencyCode)}</Td>
             </tr>
           </tbody>
         </table>
@@ -1253,6 +1299,8 @@ function ComparisonTable({ preview }: { preview: EvaluationPreview }) {
 }
 
 function AmortizationSummary({ preview }: { preview: EvaluationPreview }) {
+  const currencyCode = preview.inputs.currencyCode;
+
   return (
     <div className="min-w-0">
       <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -1288,12 +1336,12 @@ function AmortizationSummary({ preview }: { preview: EvaluationPreview }) {
             {preview.amortizationSummaryRows.map((row) => (
               <tr key={row.year} className="border-t border-slate-200">
                 <Td>{row.year}</Td>
-                <Td>{money(row.interest)}</Td>
-                <Td>{money(row.principal)}</Td>
-                <Td>{money(row.endingBalance)}</Td>
-                <Td>{money(row.totalInstalment)}</Td>
+                <Td>{money(row.interest, currencyCode)}</Td>
+                <Td>{money(row.principal, currencyCode)}</Td>
+                <Td>{money(row.endingBalance, currencyCode)}</Td>
+                <Td>{money(row.totalInstalment, currencyCode)}</Td>
                 <Td>{percent(row.interestPrincipalRatio)}</Td>
-                <Td>{money(row.decrease)}</Td>
+                <Td>{money(row.decrease, currencyCode)}</Td>
                 <Td>{percent(row.interestTotalInterestRatio)}</Td>
               </tr>
             ))}
@@ -1379,9 +1427,9 @@ function calculatePercent(amount: number, base: number): number {
     : Number.NaN;
 }
 
-function compactMoney(value: number): string {
+function compactMoney(value: number, currencyCode: CurrencyCode): string {
   const absoluteValue = Math.abs(value);
-  const prefix = value < 0 ? "AED -" : "AED ";
+  const prefix = value < 0 ? `${currencyCode} -` : `${currencyCode} `;
 
   if (absoluteValue >= 1_000_000_000) {
     return `${prefix}${(absoluteValue / 1_000_000_000).toFixed(2)}B`;
@@ -1413,6 +1461,7 @@ function validPair(amount: number, percentage: number, source: AmountPercentSour
 function getFieldErrors(form: EvaluationRequest): FieldErrors {
   return {
     propertyName: !form.propertyName.trim(),
+    currencyCode: !currencyOptions.some((option) => option.code === form.currencyCode),
     propertyNetPurchasePrice: !validPositive(form.propertyNetPurchasePrice),
     areaValue: !validPositive(form.areaValue),
     areaUnit: form.areaUnit !== "sq. ft" && form.areaUnit !== "sq. m",
@@ -1447,6 +1496,9 @@ function validateForm(form: EvaluationRequest): string[] {
   if (fields.propertyName) {
     errors.push("Property name / description is required.");
   }
+  if (fields.currencyCode) {
+    errors.push("Currency is required.");
+  }
   if (fields.propertyNetPurchasePrice) {
     errors.push("Property net purchase price must be positive.");
   }
@@ -1457,10 +1509,10 @@ function validateForm(form: EvaluationRequest): string[] {
     errors.push("Area unit is required.");
   }
   if (fields.downPayment) {
-    errors.push("Down payment requires a valid AED value or percentage.");
+    errors.push("Down payment requires a valid currency value or percentage.");
   }
   if (fields.purchaseCost) {
-    errors.push("Purchase cost requires a valid AED value or percentage.");
+    errors.push("Purchase cost requires a valid currency value or percentage.");
   }
   if (fields.loanTermYears) {
     errors.push("Loan payment period must be an integer from 1 to 40.");
@@ -1469,16 +1521,16 @@ function validateForm(form: EvaluationRequest): string[] {
     errors.push("Mortgage rate must be zero or positive.");
   }
   if (fields.earlyPaymentFee) {
-    errors.push("Early payment fee requires a valid AED cap/value or percentage.");
+    errors.push("Early payment fee requires a valid currency cap/value or percentage.");
   }
   if (fields.rentYield) {
-    errors.push("Current rent requires a valid annual AED value or yield percentage.");
+    errors.push("Current rent requires a valid annual currency value or yield percentage.");
   }
   if (fields.serviceChargePerSqFt) {
     errors.push("Service charges must be zero or positive.");
   }
   if (fields.savingsProfitRate) {
-    errors.push("Profit rate savings can earn per year requires a valid AED value or percentage.");
+    errors.push("Profit rate savings can earn per year requires a valid currency value or percentage.");
   }
   if (form.customMarketVariations.length !== form.loanTermYears) {
     errors.push("Market variation rows must match the selected loan term.");

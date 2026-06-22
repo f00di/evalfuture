@@ -8,7 +8,7 @@ The brand name is **Evalfuture.** with the trailing period. Preserve it in produ
 
 ## 2. Current Business Goal
 
-The site should feel like a professional finance/accounting/property consulting website first, with the comparison model available through the main **Get a Free Comparison** flow. The calculator must remain functional, but it should not be the only homepage experience.
+The site should feel like a professional finance/accounting/property consulting website first, with the comparison model available through the main comparison flow. The calculator must remain functional, but it should not be the only homepage experience.
 
 Core service positioning:
 - Free Initial Comparison
@@ -87,7 +87,7 @@ Use a modern finance/accounting/property consulting style:
 Keep UI professional, calm, and easy to scan. Use amber/yellow only for model input cells. Avoid unsupported financial-advice claims. Keep contact placeholders:
 
 ```text
-UAE: xxxx
+Phone: xxxx
 Email: xxxxxx
 ```
 
@@ -144,7 +144,7 @@ Do not deploy the repository root. Do not replace the app with README content. `
 
 A change is done when:
 - The homepage opens as a professional Evalfuture. business site
-- The main CTA says **Get a Free Comparison**
+- The main CTA clearly opens the comparison flow
 - The calculator remains reachable and functional
 - Loan-term market rows stay dynamic
 - The chart and preview metrics update from user input

@@ -20,11 +20,11 @@ Requirements:
 - Keep the professional finance/property consulting style.
 - Use the existing palette: navy, slate, teal, muted gold, cream, panel blue, amber inputs, positive green, risk red.
 - Keep the homepage as a professional business website, not only a calculator.
-- Keep the calculator in the "Get a Free Comparison" flow.
+- Keep the calculator in the comparison flow.
 - Preserve dynamic loan-term market rows.
 - Preserve Default/Custom scenario logic.
 - Preserve XLSX download.
-- Keep contact placeholders: UAE: xxxx and Email: xxxxxx.
+- Keep contact placeholders: Phone: xxxx and Email: xxxxxx.
 - Preserve GitHub Pages base path /evalfuture/.
 
 Inspect the repo first, then implement scoped UI improvements. Run available checks and summarize exactly what changed.
@@ -33,7 +33,7 @@ Inspect the repo first, then implement scoped UI improvements. Run available che
 ## Acceptance Criteria
 
 - Homepage remains professional and easy to scan.
-- The main CTA says "Get a Free Comparison."
+- The main CTA clearly opens the comparison flow.
 - Calculator remains reachable and functional.
 - No text clipping on common laptop and mobile widths.
 - Build succeeds.
