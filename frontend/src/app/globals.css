@@ -18,6 +18,7 @@ html {
 
 body {
   margin: 0;
+  overflow-x: hidden;
   background:
     linear-gradient(180deg, rgba(231, 240, 247, 0.72) 0%, rgba(248, 250, 246, 0) 360px),
     var(--background);
@@ -33,6 +34,17 @@ select {
 
 .numeric {
   font-variant-numeric: tabular-nums;
+}
+
+.numeric::-webkit-outer-spin-button,
+.numeric::-webkit-inner-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.numeric[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
 }
 
 .scrollbar-soft {

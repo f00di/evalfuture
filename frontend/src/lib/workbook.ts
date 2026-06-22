@@ -34,16 +34,23 @@ function buildEvalfutureRows(preview: EvaluationPreview): CellValue[][] {
     ["Assumptions", "Value"],
     ["Property name / description", inputs.propertyName],
     ["Property Net Purchase Price", inputs.propertyNetPurchasePrice],
-    ["Area in sq. ft", inputs.areaSqFt],
+    ["Area value entered", inputs.areaValue],
+    ["Area unit selected", inputs.areaUnit],
+    ["Normalized area in sq. ft", inputs.areaSqFt],
+    ["Down payment AED", derived.downPaymentAmount],
     ["Down payment %", percent(inputs.downPaymentPct)],
+    ["Purchase cost AED", derived.purchaseCostAmount],
     ["Purchase cost %", percent(inputs.purchaseCostPct)],
     ["Loan payment period in years", inputs.loanTermYears],
     ["Mortgage rate %", percent(inputs.mortgageRatePct)],
+    ["Early payment fee AED cap/value", inputs.earlyPaymentFeeAmount],
     ["Early payment fee %", percent(inputs.earlyPaymentFeePct)],
+    ["Current Rent of Property/year AED", derived.currentRentPerYear],
     ["Current Rent of Property/year %", percent(inputs.rentYieldPct)],
     ["Service Charges Rate/per sq. ft/year", inputs.serviceChargePerSqFt],
+    ["First-year expected savings earnings AED", inputs.savingsProfitAmount],
     ["Profit rate savings can earn/year", percent(inputs.savingsProfitRatePct)],
-    ["Scenario", inputs.scenario],
+    ["Market variation mode", "Edited values use row overrides; blank rows use defaults."],
     [],
     ["Derived Values", "AED"],
     ["Down payment amount", derived.downPaymentAmount],
@@ -62,24 +69,18 @@ function buildEvalfutureRows(preview: EvaluationPreview): CellValue[][] {
     [],
     [
       "Year",
-      "Default market variation",
-      "Default selling price",
-      "Custom market variation",
-      "Custom selling price",
-      "Selected variation",
-      "Selected selling price"
+      "Market variation",
+      "Selling price",
+      "Source"
     ]
   ];
 
   preview.marketRows.forEach((row) => {
     rows.push([
       row.year,
-      percent(row.defaultMarketVariation),
-      row.defaultSellingPrice,
-      row.customMarketVariation === null ? "" : percent(row.customMarketVariation),
-      row.customSellingPrice,
       percent(row.selectedMarketVariation),
-      row.selectedSellingPrice
+      row.selectedSellingPrice,
+      row.customMarketVariation === null ? "Default" : "Custom"
     ]);
   });
 

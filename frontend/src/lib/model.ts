@@ -1,17 +1,33 @@
 export type Scenario = "Default" | "Custom";
+export type AreaUnit = "sq. ft" | "sq. m";
+export type AmountPercentSource = "amount" | "percent";
+
+export const SQM_TO_SQFT = 10.7639;
 
 export interface EvaluationRequest {
   propertyName: string;
   propertyNetPurchasePrice: number;
+  areaValue: number;
+  areaUnit: AreaUnit;
   areaSqFt: number;
+  downPaymentAmount: number;
   downPaymentPct: number;
+  downPaymentSource: AmountPercentSource;
+  purchaseCostAmount: number;
   purchaseCostPct: number;
+  purchaseCostSource: AmountPercentSource;
   loanTermYears: number;
   mortgageRatePct: number;
+  earlyPaymentFeeAmount: number;
   earlyPaymentFeePct: number;
+  earlyPaymentFeeSource: AmountPercentSource;
+  currentRentPerYear: number;
   rentYieldPct: number;
+  rentYieldSource: AmountPercentSource;
   serviceChargePerSqFt: number;
+  savingsProfitAmount: number;
   savingsProfitRatePct: number;
+  savingsProfitRateSource: AmountPercentSource;
   scenario: Scenario;
   customMarketVariations: Array<number | null>;
 }
@@ -98,16 +114,28 @@ export interface EvaluationPreview {
 export const defaultRequest: EvaluationRequest = {
   propertyName: "2 BR Apartment in Reem Island",
   propertyNetPurchasePrice: 1500000,
+  areaValue: 1200,
+  areaUnit: "sq. ft",
   areaSqFt: 1200,
+  downPaymentAmount: 300000,
   downPaymentPct: 0.2,
+  downPaymentSource: "percent",
+  purchaseCostAmount: 75000,
   purchaseCostPct: 0.05,
+  purchaseCostSource: "percent",
   loanTermYears: 10,
   mortgageRatePct: 0.037,
+  earlyPaymentFeeAmount: 10000,
   earlyPaymentFeePct: 0.01,
+  earlyPaymentFeeSource: "percent",
+  currentRentPerYear: 112500,
   rentYieldPct: 0.075,
+  rentYieldSource: "percent",
   serviceChargePerSqFt: 13,
+  savingsProfitAmount: 18750,
   savingsProfitRatePct: 0.05,
-  scenario: "Default",
+  savingsProfitRateSource: "percent",
+  scenario: "Custom",
   customMarketVariations: Array.from({ length: 10 }, () => null)
 };
 
@@ -217,25 +245,104 @@ function buildAmortizationSchedule(
   return rows;
 }
 
-function selectedVariation(
-  scenario: Scenario,
-  defaultVariation: number,
-  customVariation: number | null
-): number {
-  if (scenario === "Custom" && customVariation !== null) {
-    return customVariation;
+function normalizePairedValue({
+  base,
+  amount,
+  percent,
+  source
+}: {
+  base: number;
+  amount: number;
+  percent: number;
+  source: AmountPercentSource;
+}): { amount: number; percent: number } {
+  const canUseBase = Number.isFinite(base) && base > 0;
+  if (source === "amount") {
+    return {
+      amount,
+      percent: canUseBase && Number.isFinite(amount) ? amount / base : percent
+    };
   }
-  return defaultVariation;
+  return {
+    amount: canUseBase && Number.isFinite(percent) ? base * percent : amount,
+    percent
+  };
 }
 
-export function calculatePreview(inputs: EvaluationRequest): EvaluationPreview {
+export function normalizeEvaluationRequest(inputs: EvaluationRequest): EvaluationRequest {
+  const areaSqFt =
+    inputs.areaUnit === "sq. m" ? inputs.areaValue * SQM_TO_SQFT : inputs.areaValue;
+
+  const downPayment = normalizePairedValue({
+    base: inputs.propertyNetPurchasePrice,
+    amount: inputs.downPaymentAmount,
+    percent: inputs.downPaymentPct,
+    source: inputs.downPaymentSource
+  });
+  const purchaseCost = normalizePairedValue({
+    base: inputs.propertyNetPurchasePrice,
+    amount: inputs.purchaseCostAmount,
+    percent: inputs.purchaseCostPct,
+    source: inputs.purchaseCostSource
+  });
+  const rent = normalizePairedValue({
+    base: inputs.propertyNetPurchasePrice,
+    amount: inputs.currentRentPerYear,
+    percent: inputs.rentYieldPct,
+    source: inputs.rentYieldSource
+  });
+  const savingsBase = downPayment.amount + purchaseCost.amount;
+  const savings = normalizePairedValue({
+    base: savingsBase,
+    amount: inputs.savingsProfitAmount,
+    percent: inputs.savingsProfitRatePct,
+    source: inputs.savingsProfitRateSource
+  });
+  const principalLoan = inputs.propertyNetPurchasePrice - downPayment.amount;
+  const earlyPaymentFeePct =
+    inputs.earlyPaymentFeeSource === "amount" &&
+    Number.isFinite(inputs.earlyPaymentFeeAmount) &&
+    Number.isFinite(principalLoan) &&
+    principalLoan > 0
+      ? inputs.earlyPaymentFeeAmount / principalLoan
+      : inputs.earlyPaymentFeePct;
+
+  return {
+    ...inputs,
+    areaSqFt,
+    downPaymentAmount: downPayment.amount,
+    downPaymentPct: downPayment.percent,
+    purchaseCostAmount: purchaseCost.amount,
+    purchaseCostPct: purchaseCost.percent,
+    currentRentPerYear: rent.amount,
+    rentYieldPct: rent.percent,
+    savingsProfitAmount: savings.amount,
+    savingsProfitRatePct: savings.percent,
+    earlyPaymentFeeAmount: Number.isFinite(inputs.earlyPaymentFeeAmount)
+      ? inputs.earlyPaymentFeeAmount
+      : 10000,
+    earlyPaymentFeePct,
+    scenario: "Custom",
+    customMarketVariations: resizeCustomVariations(
+      inputs.customMarketVariations,
+      Math.max(0, Math.min(40, Number.isFinite(inputs.loanTermYears) ? inputs.loanTermYears : 0))
+    )
+  };
+}
+
+function selectedVariation(defaultVariation: number, customVariation: number | null): number {
+  return customVariation ?? defaultVariation;
+}
+
+export function calculatePreview(rawInputs: EvaluationRequest): EvaluationPreview {
+  const inputs = normalizeEvaluationRequest(rawInputs);
   const customVariations = normalizeCustomVariations(
     inputs.customMarketVariations,
     inputs.loanTermYears
   );
-  const downPaymentAmount = inputs.propertyNetPurchasePrice * inputs.downPaymentPct;
-  const purchaseCostAmount = inputs.propertyNetPurchasePrice * inputs.purchaseCostPct;
-  const currentRentPerYear = inputs.propertyNetPurchasePrice * inputs.rentYieldPct;
+  const downPaymentAmount = inputs.downPaymentAmount;
+  const purchaseCostAmount = inputs.purchaseCostAmount;
+  const currentRentPerYear = inputs.currentRentPerYear;
   const serviceChargesYear = inputs.serviceChargePerSqFt * inputs.areaSqFt;
   const totalInitialFundsRequired = downPaymentAmount + purchaseCostAmount;
   const principalLoan = inputs.propertyNetPurchasePrice - downPaymentAmount;
@@ -269,11 +376,7 @@ export function calculatePreview(inputs: EvaluationRequest): EvaluationPreview {
   const defaultVariations = buildDefaultMarketVariations(inputs.loanTermYears);
   const marketRows: MarketRow[] = defaultVariations.map((defaultMarketVariation, index) => {
     const customMarketVariation = customVariations[index];
-    const selectedMarketVariation = selectedVariation(
-      inputs.scenario,
-      defaultMarketVariation,
-      customMarketVariation
-    );
+    const selectedMarketVariation = selectedVariation(defaultMarketVariation, customMarketVariation);
     return {
       year: index + 1,
       defaultMarketVariation,
@@ -315,7 +418,13 @@ export function calculatePreview(inputs: EvaluationRequest): EvaluationPreview {
     const earningOnAvailableFunds = fundsAvailable * inputs.savingsProfitRatePct;
     const totalCost = yearlyBankInstalments + derived.serviceChargesYear;
     const settlementBase = Math.max(0, derived.principalLoan - totalPrincipal);
-    const earlySettlementCost = Math.min(10000, settlementBase * inputs.earlyPaymentFeePct);
+    const earlySettlementCost =
+      inputs.earlyPaymentFeeSource === "amount"
+        ? Math.min(Math.max(0, inputs.earlyPaymentFeeAmount), settlementBase)
+        : Math.min(
+            Math.max(0, inputs.earlyPaymentFeeAmount),
+            settlementBase * inputs.earlyPaymentFeePct
+          );
     const propertyMarketPrice =
       inputs.propertyNetPurchasePrice * (1 + market.selectedMarketVariation);
     const netTotalResale =

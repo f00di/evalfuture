@@ -1,7 +1,7 @@
 "use client";
 
-import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -13,465 +13,568 @@ import {
 } from "recharts";
 import CompactMetricCard from "@/components/site/CompactMetricCard";
 import {
-  buildDefaultMarketVariations,
+  AmountPercentSource,
+  AreaUnit,
   calculatePreview,
   defaultRequest,
   EvaluationPreview,
   EvaluationRequest,
   fromPercentInput,
   money,
+  normalizeEvaluationRequest,
   numberValue,
   percent,
-  resizeCustomVariations,
-  Scenario,
-  toPercentInput
+  resizeCustomVariations
 } from "@/lib/model";
 import { generateWorkbookBlob, workbookFilename } from "@/lib/workbook";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "";
-
-type QuickFill = {
-  firstYearVariation: number;
-  secondYearVariation: number;
-  annualMovementAfterYearTwo: number;
+type AmountPercentValue = {
+  amount: number;
+  percent: number;
+  source: AmountPercentSource;
 };
 
-const initialQuickFill: QuickFill = {
-  firstYearVariation: 0,
-  secondYearVariation: 0,
-  annualMovementAfterYearTwo: -0.02
+type FieldErrors = {
+  propertyName: boolean;
+  propertyNetPurchasePrice: boolean;
+  areaValue: boolean;
+  areaUnit: boolean;
+  downPayment: boolean;
+  purchaseCost: boolean;
+  loanTermYears: boolean;
+  mortgageRatePct: boolean;
+  earlyPaymentFee: boolean;
+  rentYield: boolean;
+  serviceChargePerSqFt: boolean;
+  savingsProfitRate: boolean;
 };
+
+const inputClass =
+  "numeric h-11 w-full min-w-0 rounded-md border border-slate-300 bg-inputAmber/70 px-3 text-sm text-navy outline-none transition placeholder:text-slate-400 focus:border-tealFinance focus:ring-2 focus:ring-tealFinance/20";
+const invalidInputClass =
+  "border-riskRed bg-[#fff5f5] focus:border-riskRed focus:ring-riskRed/20";
 
 export default function ComparisonCalculator() {
   const [form, setForm] = useState<EvaluationRequest>(defaultRequest);
   const [preview, setPreview] = useState<EvaluationPreview | null>(null);
-  const [quickFill, setQuickFill] = useState<QuickFill>(initialQuickFill);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [hasGenerated, setHasGenerated] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
+  const normalizedForm = useMemo(() => normalizeEvaluationRequest(form), [form]);
   const validationErrors = useMemo(() => validateForm(form), [form]);
-  const defaultVariations = useMemo(
-    () => buildDefaultMarketVariations(form.loanTermYears),
-    [form.loanTermYears]
-  );
+  const fieldErrors = useMemo(() => getFieldErrors(form), [form]);
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
 
-  const requestPreview = useCallback(
-    async (request: EvaluationRequest, signal?: AbortSignal) => {
-      if (validateForm(request).length > 0) {
-        return;
-      }
-      setIsLoading(true);
-      setApiError(null);
-      try {
-        let data: EvaluationPreview | null = null;
-        if (API_BASE) {
-          try {
-            const response = await fetch(`${API_BASE}/api/preview`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(request),
-              signal
-            });
-            if (!response.ok) {
-              const detail = await response.json().catch(() => null);
-              throw new Error(detail?.detail ?? "Preview request failed");
-            }
-            data = (await response.json()) as EvaluationPreview;
-          } catch (error) {
-            if ((error as Error).name === "AbortError") {
-              throw error;
-            }
-          }
-        }
-        if (!signal?.aborted) {
-          setPreview(data ?? calculatePreview(request));
-        }
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          setApiError((error as Error).message);
-        }
-      } finally {
-        if (!signal?.aborted) {
-          setIsLoading(false);
-        }
-      }
-    },
-    []
-  );
-
   useEffect(() => {
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => {
-      void requestPreview(form, controller.signal);
-    }, 250);
-    return () => {
-      controller.abort();
-      window.clearTimeout(timeout);
-    };
-  }, [form, requestPreview]);
+    if (!hasGenerated) {
+      return;
+    }
+    if (validationErrors.length > 0) {
+      setPreview(null);
+      return;
+    }
+    setPreview(calculatePreview(form));
+  }, [form, hasGenerated, validationErrors.length]);
+
+  const updateForm = (updater: (current: EvaluationRequest) => EvaluationRequest) => {
+    setForm((current) => normalizeEvaluationRequest(updater(current)));
+  };
 
   const updateField = <K extends keyof EvaluationRequest>(
     key: K,
     value: EvaluationRequest[K]
   ) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    updateForm((current) => ({ ...current, [key]: value }));
   };
 
   const updateLoanTerm = (loanTermYears: number) => {
-    setForm((current) => ({
+    updateForm((current) => {
+      const rowCount = Number.isFinite(loanTermYears)
+        ? Math.max(0, Math.min(40, Math.trunc(loanTermYears)))
+        : 0;
+      return {
+        ...current,
+        loanTermYears,
+        customMarketVariations: resizeCustomVariations(current.customMarketVariations, rowCount)
+      };
+    });
+  };
+
+  const updateAmountPercent = (
+    keys: {
+      amount: keyof EvaluationRequest;
+      percent: keyof EvaluationRequest;
+      source: keyof EvaluationRequest;
+    },
+    value: AmountPercentValue
+  ) => {
+    updateForm((current) => ({
       ...current,
-      loanTermYears,
-      customMarketVariations: resizeCustomVariations(
-        current.customMarketVariations,
-        Math.max(0, Math.min(40, Number.isFinite(loanTermYears) ? loanTermYears : 0))
-      )
+      [keys.amount]: value.amount,
+      [keys.percent]: value.percent,
+      [keys.source]: value.source
     }));
+  };
+
+  const generateComparison = () => {
+    setShowValidation(true);
+    setDownloadError(null);
+    const errors = validateForm(form);
+    if (errors.length > 0) {
+      setHasGenerated(false);
+      setPreview(null);
+      return;
+    }
+
+    setPreview(calculatePreview(form));
+    setHasGenerated(true);
+    window.setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
+
+  const resetAssumptions = () => {
+    setForm(defaultRequest);
+    setPreview(null);
+    setHasGenerated(false);
+    setShowValidation(false);
+    setDownloadError(null);
   };
 
   const updateCustomVariation = (index: number, value: string) => {
     const parsed = fromPercentInput(value);
-    setForm((current) => {
+    updateForm((current) => {
       const next = resizeCustomVariations(current.customMarketVariations, current.loanTermYears);
       next[index] = parsed;
       return { ...current, customMarketVariations: next };
     });
   };
 
-  const prefillCustomFromDefault = () => {
-    setForm((current) => ({
-      ...current,
-      customMarketVariations: buildDefaultMarketVariations(current.loanTermYears)
-    }));
-  };
-
-  const applyQuickFill = () => {
-    setForm((current) => {
-      const values: Array<number | null> = [];
-      for (let index = 0; index < current.loanTermYears; index += 1) {
-        if (index === 0) {
-          values.push(quickFill.firstYearVariation);
-        } else if (index === 1) {
-          values.push(quickFill.secondYearVariation);
-        } else {
-          values.push((values[index - 1] ?? 0) + quickFill.annualMovementAfterYearTwo);
-        }
-      }
-      return { ...current, customMarketVariations: values };
+  const resetCustomVariation = (index: number) => {
+    updateForm((current) => {
+      const next = resizeCustomVariations(current.customMarketVariations, current.loanTermYears);
+      next[index] = null;
+      return { ...current, customMarketVariations: next };
     });
   };
 
+  const resetMarketVariations = () => {
+    updateForm((current) => ({
+      ...current,
+      customMarketVariations: Array.from({ length: current.loanTermYears }, () => null)
+    }));
+  };
+
   const downloadWorkbook = async () => {
-    if (validationErrors.length > 0) {
+    const errors = validateForm(form);
+    if (errors.length > 0) {
+      setShowValidation(true);
       return;
     }
+
     setIsDownloading(true);
-    setApiError(null);
+    setDownloadError(null);
     try {
-      let blob: Blob | null = null;
-      if (API_BASE) {
-        try {
-          const response = await fetch(`${API_BASE}/api/export`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(form)
-          });
-          if (!response.ok) {
-            const detail = await response.json().catch(() => null);
-            throw new Error(detail?.detail ?? "Workbook export failed");
-          }
-          blob = await response.blob();
-        } catch {
-          blob = null;
-        }
-      }
-      blob ??= generateWorkbookBlob(calculatePreview(form));
+      const currentPreview = preview ?? calculatePreview(form);
+      const blob = generateWorkbookBlob(currentPreview);
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = workbookFilename(form.propertyName);
+      anchor.download = workbookFilename(currentPreview.inputs.propertyName);
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      setApiError((error as Error).message);
+      setDownloadError((error as Error).message);
     } finally {
       setIsDownloading(false);
     }
   };
 
-  const chartData = useMemo(() => {
-    const rows = preview?.marketRows ?? [];
-    return rows.map((row) => ({
-      year: row.year,
-      defaultVariation: row.defaultMarketVariation * 100,
-      customVariation:
-        row.customMarketVariation === null ? null : row.customMarketVariation * 100,
-      selectedVariation: row.selectedMarketVariation * 100
-    }));
-  }, [preview]);
-
   return (
-    <section id="calculator" className="rounded-lg border border-slate-200 bg-white shadow-panel">
+    <section id="calculator" className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-panel">
       <div className="border-b border-slate-200 p-5 sm:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-tealFinance">
-              Free Initial Comparison
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-navy sm:text-3xl">
-              Build your property comparison
-            </h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slateFinance sm:text-base">
-              Enter your assumptions to preview a rent-vs-buy outcome and download an
-              Excel-compatible two-sheet workbook.
-            </p>
+        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-tealFinance">
+          Free Initial Comparison
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-navy sm:text-3xl">
+          Answer the property questions first
+        </h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slateFinance sm:text-base">
+          Enter the assumptions you want the model to use. Results, charts, tables, and the Excel
+          download appear after the questionnaire is complete.
+        </p>
+      </div>
+
+      <div className="p-4 sm:p-6">
+        <AssumptionsForm
+          form={form}
+          normalizedForm={normalizedForm}
+          fieldErrors={showValidation ? fieldErrors : null}
+          updateField={updateField}
+          updateLoanTerm={updateLoanTerm}
+          updateAmountPercent={updateAmountPercent}
+        />
+
+        <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm leading-6 text-slateFinance">
+            <p className="font-semibold text-navy">Ready to generate your comparison?</p>
+            <p>Market variation rows will match the selected loan term and can be edited in Results.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
-              onClick={() => void requestPreview(form)}
-              disabled={isLoading || validationErrors.length > 0}
-              className="rounded-md bg-tealFinance px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b625b] disabled:cursor-not-allowed disabled:bg-slate-300"
+              onClick={resetAssumptions}
+              className="rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-navy transition hover:border-tealFinance hover:text-tealFinance"
             >
-              {isLoading ? "Previewing..." : "Preview Evaluation"}
+              Reset Assumptions
             </button>
             <button
               type="button"
-              onClick={() => void downloadWorkbook()}
-              disabled={isDownloading || validationErrors.length > 0}
-              className="rounded-md bg-navy px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#102A43] disabled:cursor-not-allowed disabled:bg-slate-300"
+              onClick={generateComparison}
+              className="rounded-md bg-tealFinance px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b625b]"
             >
-              {isDownloading ? "Preparing XLSX..." : "Download Your Excel Comparison"}
+              Generate My Free Comparison
             </button>
           </div>
         </div>
-        <p className="mt-4 rounded-md border border-goldFinance/30 bg-inputAmber/50 px-3 py-2 text-xs leading-5 text-slateFinance">
-          The GitHub Pages version creates the workbook in your browser. A backend export is used
-          only when NEXT_PUBLIC_API_BASE_URL is configured.
-        </p>
+
+        {showValidation && validationErrors.length > 0 && (
+          <ValidationSummary errors={validationErrors} />
+        )}
       </div>
 
-      {(validationErrors.length > 0 || apiError) && (
-        <section className="border-b border-riskRed/20 bg-[#fff7f7] p-4 text-sm text-riskRed">
-          {apiError && <p>{apiError}</p>}
-          {validationErrors.map((error) => (
-            <p key={error}>{error}</p>
-          ))}
-        </section>
+      {hasGenerated && preview && (
+        <ResultsSection
+          refTarget={resultsRef}
+          preview={preview}
+          hasMounted={hasMounted}
+          isDownloading={isDownloading}
+          downloadError={downloadError}
+          updateCustomVariation={updateCustomVariation}
+          resetCustomVariation={resetCustomVariation}
+          resetMarketVariations={resetMarketVariations}
+          downloadWorkbook={downloadWorkbook}
+        />
       )}
-
-      <div className="grid gap-6 p-4 sm:p-6 xl:grid-cols-[minmax(0,410px)_minmax(0,1fr)]">
-        <section className="min-w-0">
-          <SectionTitle title="Assumptions" />
-          <InputPanel
-            form={form}
-            updateField={updateField}
-            updateLoanTerm={updateLoanTerm}
-            quickFill={quickFill}
-            setQuickFill={setQuickFill}
-            applyQuickFill={applyQuickFill}
-            prefillCustomFromDefault={prefillCustomFromDefault}
-          />
-        </section>
-
-        <section className="flex min-w-0 flex-col gap-6">
-          <CalculatorBlock title="Summary">
-            <KpiCards preview={preview} />
-          </CalculatorBlock>
-          <CalculatorBlock
-            title="Market Scenario"
-            detail={`${form.loanTermYears} market variation rows generated from the selected loan term.`}
-          >
-            <MarketSection
-              defaultVariations={defaultVariations}
-              form={form}
-              preview={preview}
-              updateCustomVariation={updateCustomVariation}
-              chartData={chartData}
-              hasMounted={hasMounted}
-            />
-          </CalculatorBlock>
-          <CalculatorBlock title="Results" detail="Detailed tables are available below when needed.">
-            <ResultsPanel preview={preview} />
-          </CalculatorBlock>
-        </section>
-      </div>
-
-      <DetailedTables preview={preview} />
     </section>
   );
 }
 
-function InputPanel({
+function AssumptionsForm({
   form,
+  normalizedForm,
+  fieldErrors,
   updateField,
   updateLoanTerm,
-  quickFill,
-  setQuickFill,
-  applyQuickFill,
-  prefillCustomFromDefault
+  updateAmountPercent
 }: {
   form: EvaluationRequest;
+  normalizedForm: EvaluationRequest;
+  fieldErrors: FieldErrors | null;
   updateField: <K extends keyof EvaluationRequest>(key: K, value: EvaluationRequest[K]) => void;
   updateLoanTerm: (loanTermYears: number) => void;
-  quickFill: QuickFill;
-  setQuickFill: Dispatch<SetStateAction<QuickFill>>;
-  applyQuickFill: () => void;
-  prefillCustomFromDefault: () => void;
+  updateAmountPercent: (
+    keys: {
+      amount: keyof EvaluationRequest;
+      percent: keyof EvaluationRequest;
+      source: keyof EvaluationRequest;
+    },
+    value: AmountPercentValue
+  ) => void;
 }) {
+  const initialFunds =
+    normalizedForm.downPaymentAmount + normalizedForm.purchaseCostAmount;
+  const principalLoan =
+    normalizedForm.propertyNetPurchasePrice - normalizedForm.downPaymentAmount;
+
   return (
-    <div className="mt-4 flex min-w-0 flex-col gap-4">
+    <div className="grid min-w-0 gap-4">
       <FieldGroup
         title="Property Details"
-        description="Basic details used across the comparison and workbook export."
+        description="Core property details used by the comparison and workbook."
       >
         <TextField
           label="Property name / description"
           value={form.propertyName}
+          invalid={fieldErrors?.propertyName}
           onChange={(value) => updateField("propertyName", value)}
         />
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          <NumberField
+        <div className="grid min-w-0 gap-3 lg:grid-cols-2">
+          <MoneyInput
             label="Property net purchase price"
             value={form.propertyNetPurchasePrice}
+            invalid={fieldErrors?.propertyNetPurchasePrice}
             onChange={(value) => updateField("propertyNetPurchasePrice", value)}
           />
-          <NumberField
-            label="Area in sq. ft"
-            value={form.areaSqFt}
-            onChange={(value) => updateField("areaSqFt", value)}
-          />
+          <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
+            <MoneyInput
+              label="Area value"
+              value={form.areaValue}
+              invalid={fieldErrors?.areaValue}
+              onChange={(value) => updateField("areaValue", value)}
+            />
+            <AreaUnitSelect
+              value={form.areaUnit}
+              invalid={fieldErrors?.areaUnit}
+              onChange={(value) => updateField("areaUnit", value)}
+            />
+          </div>
         </div>
+        <p className="text-xs leading-5 text-slateFinance">
+          Service charges are calculated using the area converted to sq. ft.
+        </p>
       </FieldGroup>
 
       <FieldGroup
         title="Purchase & Financing"
-        description="Down payment, acquisition costs, loan term, mortgage rate, and exit cost."
+        description="Acquisition assumptions, loan term, mortgage rate, and estimated settlement cost."
       >
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          <PercentField
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+          <AmountOrPercentInput
             label="Down payment"
-            value={form.downPaymentPct}
-            onChange={(value) => updateField("downPaymentPct", value ?? 0)}
+            amount={form.downPaymentAmount}
+            percent={form.downPaymentPct}
+            source={form.downPaymentSource}
+            base={form.propertyNetPurchasePrice}
+            invalid={fieldErrors?.downPayment}
+            onChange={(value) =>
+              updateAmountPercent(
+                {
+                  amount: "downPaymentAmount",
+                  percent: "downPaymentPct",
+                  source: "downPaymentSource"
+                },
+                value
+              )
+            }
           />
-          <PercentField
+          <AmountOrPercentInput
             label="Purchase cost"
-            value={form.purchaseCostPct}
-            onChange={(value) => updateField("purchaseCostPct", value ?? 0)}
+            amount={form.purchaseCostAmount}
+            percent={form.purchaseCostPct}
+            source={form.purchaseCostSource}
+            base={form.propertyNetPurchasePrice}
+            invalid={fieldErrors?.purchaseCost}
+            onChange={(value) =>
+              updateAmountPercent(
+                {
+                  amount: "purchaseCostAmount",
+                  percent: "purchaseCostPct",
+                  source: "purchaseCostSource"
+                },
+                value
+              )
+            }
           />
-          <NumberField
+          <NumberInput
             label="Loan payment period in years"
             value={form.loanTermYears}
             min={1}
             max={40}
             step={1}
+            invalid={fieldErrors?.loanTermYears}
             onChange={updateLoanTerm}
           />
-          <PercentField
+          <PercentInput
             label="Mortgage rate"
             value={form.mortgageRatePct}
-            onChange={(value) => updateField("mortgageRatePct", value ?? 0)}
+            invalid={fieldErrors?.mortgageRatePct}
+            onChange={(value) => updateField("mortgageRatePct", value)}
           />
-          <PercentField
-            label="Early payment fee"
-            value={form.earlyPaymentFeePct}
-            onChange={(value) => updateField("earlyPaymentFeePct", value ?? 0)}
-          />
+          <div className="xl:col-span-2">
+            <AmountOrPercentInput
+              label="Early payment fee"
+              amountLabel="AED cap/value"
+              amount={form.earlyPaymentFeeAmount}
+              percent={form.earlyPaymentFeePct}
+              source={form.earlyPaymentFeeSource}
+              base={principalLoan}
+              invalid={fieldErrors?.earlyPaymentFee}
+              preserveAmountOnPercentChange
+              helperText="Used to estimate early settlement cost. UAE mortgage products may apply caps or lender-specific rules."
+              onChange={(value) =>
+                updateAmountPercent(
+                  {
+                    amount: "earlyPaymentFeeAmount",
+                    percent: "earlyPaymentFeePct",
+                    source: "earlyPaymentFeeSource"
+                  },
+                  value
+                )
+              }
+            />
+          </div>
         </div>
       </FieldGroup>
 
       <FieldGroup
         title="Rental & Service Charges"
-        description="Rental yield, recurring service charges, and opportunity cost of savings."
+        description="Rental return, service charges, and the savings profit assumption."
       >
-        <PercentField
-          label="Current rent of property per year"
-          value={form.rentYieldPct}
-          onChange={(value) => updateField("rentYieldPct", value ?? 0)}
-        />
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          <NumberField
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+          <AmountOrPercentInput
+            label="Current rent of property per year"
+            amount={form.currentRentPerYear}
+            percent={form.rentYieldPct}
+            source={form.rentYieldSource}
+            base={form.propertyNetPurchasePrice}
+            invalid={fieldErrors?.rentYield}
+            onChange={(value) =>
+              updateAmountPercent(
+                {
+                  amount: "currentRentPerYear",
+                  percent: "rentYieldPct",
+                  source: "rentYieldSource"
+                },
+                value
+              )
+            }
+          />
+          <MoneyInput
             label="Service charges AED per sq. ft per year"
             value={form.serviceChargePerSqFt}
+            invalid={fieldErrors?.serviceChargePerSqFt}
             onChange={(value) => updateField("serviceChargePerSqFt", value)}
           />
-          <PercentField
-            label="Profit rate savings can earn per year"
-            value={form.savingsProfitRatePct}
-            onChange={(value) => updateField("savingsProfitRatePct", value ?? 0)}
-          />
+          <div className="xl:col-span-2">
+            <AmountOrPercentInput
+              label="Profit rate savings can earn per year"
+              amountLabel="First-year AED earnings"
+              amount={form.savingsProfitAmount}
+              percent={form.savingsProfitRatePct}
+              source={form.savingsProfitRateSource}
+              base={initialFunds}
+              invalid={fieldErrors?.savingsProfitRate}
+              helperText="AED value is converted into an equivalent first-year rate based on down payment plus purchase cost."
+              onChange={(value) =>
+                updateAmountPercent(
+                  {
+                    amount: "savingsProfitAmount",
+                    percent: "savingsProfitRatePct",
+                    source: "savingsProfitRateSource"
+                  },
+                  value
+                )
+              }
+            />
+          </div>
         </div>
       </FieldGroup>
 
       <FieldGroup
         title="Market Assumptions"
-        description="Choose the default movement curve or enter your own annual rise/drop values."
+        description="The default market variation curve is created from the loan term and can be edited after results are generated."
       >
-        <label className="grid min-w-0 gap-1 text-sm">
-          <span className="font-medium text-slateFinance">Scenario selector</span>
-          <select
-            value={form.scenario}
-            onChange={(event) => updateField("scenario", event.target.value as Scenario)}
-            className="h-10 w-full min-w-0 rounded-md border border-slate-300 bg-inputAmber px-3 text-sm font-semibold text-navy outline-none focus:border-tealFinance focus:ring-2 focus:ring-tealFinance/20"
-          >
-            <option value="Default">Default</option>
-            <option value="Custom">Custom</option>
-          </select>
-        </label>
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          <PercentField
-            label="First year variation"
-            value={quickFill.firstYearVariation}
-            allowNegative
-            onChange={(value) =>
-              setQuickFill((current) => ({ ...current, firstYearVariation: value ?? 0 }))
-            }
-          />
-          <PercentField
-            label="Second year variation"
-            value={quickFill.secondYearVariation}
-            allowNegative
-            onChange={(value) =>
-              setQuickFill((current) => ({ ...current, secondYearVariation: value ?? 0 }))
-            }
-          />
-          <PercentField
-            label="Annual movement after year 2"
-            value={quickFill.annualMovementAfterYearTwo}
-            allowNegative
-            onChange={(value) =>
-              setQuickFill((current) => ({
-                ...current,
-                annualMovementAfterYearTwo: value ?? 0
-              }))
-            }
-          />
-        </div>
-        <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          <button
-            type="button"
-            onClick={prefillCustomFromDefault}
-            className="min-w-0 rounded-md border border-tealFinance bg-white px-3 py-2 text-sm font-semibold text-tealFinance transition hover:bg-tealFinance hover:text-white"
-          >
-            Prefill Custom From Default
-          </button>
-          <button
-            type="button"
-            onClick={applyQuickFill}
-            className="min-w-0 rounded-md border border-goldFinance bg-white px-3 py-2 text-sm font-semibold text-navy transition hover:bg-inputAmber"
-          >
-            Apply Quick Fill
-          </button>
+        <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slateFinance">
+          <span className="font-semibold text-navy">{normalizedForm.loanTermYears || 0}</span>{" "}
+          market variation rows will be available in Results.
         </div>
       </FieldGroup>
     </div>
+  );
+}
+
+function ResultsSection({
+  refTarget,
+  preview,
+  hasMounted,
+  isDownloading,
+  downloadError,
+  updateCustomVariation,
+  resetCustomVariation,
+  resetMarketVariations,
+  downloadWorkbook
+}: {
+  refTarget: React.RefObject<HTMLDivElement | null>;
+  preview: EvaluationPreview;
+  hasMounted: boolean;
+  isDownloading: boolean;
+  downloadError: string | null;
+  updateCustomVariation: (index: number, value: string) => void;
+  resetCustomVariation: (index: number) => void;
+  resetMarketVariations: () => void;
+  downloadWorkbook: () => void;
+}) {
+  const chartData = useMemo(
+    () =>
+      preview.marketRows.map((row) => ({
+        year: row.year,
+        variation: row.selectedMarketVariation * 100,
+        sellingPrice: row.selectedSellingPrice
+      })),
+    [preview.marketRows]
+  );
+
+  return (
+    <section ref={refTarget} id="results" className="scroll-mt-24 border-t border-slate-200 bg-creamFinance/60">
+      <div className="p-4 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-tealFinance">
+              Results
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-navy sm:text-3xl">
+              Your Free Comparison Results
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slateFinance sm:text-base">
+              Based on the assumptions provided, here is the estimated rent-vs-buy and financing
+              comparison.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={downloadWorkbook}
+              disabled={isDownloading}
+              className="rounded-md bg-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#102A43] disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {isDownloading ? "Preparing XLSX..." : "Download Excel Comparison"}
+            </button>
+            <p className="text-xs leading-5 text-slateFinance">
+              The GitHub Pages version creates the workbook in your browser.
+            </p>
+          </div>
+        </div>
+
+        {downloadError && (
+          <div className="mt-4 rounded-md border border-riskRed/20 bg-[#fff7f7] px-3 py-2 text-sm text-riskRed">
+            {downloadError}
+          </div>
+        )}
+
+        <div className="mt-6">
+          <KpiCards preview={preview} />
+        </div>
+
+        <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <CalculatorBlock
+            title="Market Variation"
+            detail={`${preview.marketRows.length} rows generated from the selected loan term.`}
+          >
+            <MarketVariationTable
+              preview={preview}
+              updateCustomVariation={updateCustomVariation}
+              resetCustomVariation={resetCustomVariation}
+              resetMarketVariations={resetMarketVariations}
+            />
+          </CalculatorBlock>
+          <CalculatorBlock title="Property Market Price Fluctuations">
+            <MarketChart chartData={chartData} hasMounted={hasMounted} />
+          </CalculatorBlock>
+        </div>
+
+        <DetailedTables preview={preview} />
+      </div>
+    </section>
   );
 }
 
@@ -487,7 +590,7 @@ function FieldGroup({
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-creamFinance/70 p-4">
       <div className="border-b border-slate-200 pb-3">
-        <h4 className="text-base font-semibold text-navy">{title}</h4>
+        <h3 className="text-base font-semibold text-navy">{title}</h3>
         <p className="mt-1 text-xs leading-5 text-slateFinance">{description}</p>
       </div>
       <div className="mt-4 grid min-w-0 gap-3">{children}</div>
@@ -498,75 +601,237 @@ function FieldGroup({
 function TextField({
   label,
   value,
+  invalid,
   onChange
 }: {
   label: string;
   value: string;
+  invalid?: boolean;
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="grid min-w-0 gap-1 text-sm">
+    <label className="grid min-w-0 gap-1.5 text-sm">
       <span className="font-medium leading-5 text-slateFinance">{label}</span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full min-w-0 rounded-md border border-slate-300 bg-inputAmber px-3 text-navy outline-none transition focus:border-tealFinance focus:ring-2 focus:ring-tealFinance/20"
+        className={`${inputClass} ${invalid ? invalidInputClass : ""}`}
       />
     </label>
   );
 }
 
-function NumberField({
+function MoneyInput({
   label,
   value,
-  onChange,
-  min,
-  max,
-  step = 0.01
+  invalid,
+  onChange
 }: {
   label: string;
   value: number;
+  invalid?: boolean;
   onChange: (value: number) => void;
+}) {
+  return (
+    <label className="grid min-w-0 gap-1.5 text-sm">
+      <span className="font-medium leading-5 text-slateFinance">{label}</span>
+      <NumericTextInput value={value} invalid={invalid} onChange={onChange} />
+    </label>
+  );
+}
+
+function NumberInput({
+  label,
+  value,
+  min,
+  max,
+  step,
+  invalid,
+  onChange
+}: {
+  label: string;
+  value: number;
   min?: number;
   max?: number;
   step?: number;
+  invalid?: boolean;
+  onChange: (value: number) => void;
 }) {
   return (
-    <label className="grid min-w-0 gap-1 text-sm">
+    <label className="grid min-w-0 gap-1.5 text-sm">
       <span className="font-medium leading-5 text-slateFinance">{label}</span>
-      <input
-        type="number"
-        value={Number.isFinite(value) ? value : ""}
+      <NumericTextInput
+        value={value}
         min={min}
         max={max}
         step={step}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="numeric h-10 w-full min-w-0 rounded-md border border-slate-300 bg-inputAmber px-3 text-navy outline-none transition focus:border-tealFinance focus:ring-2 focus:ring-tealFinance/20"
+        invalid={invalid}
+        onChange={onChange}
       />
     </label>
   );
 }
 
-function PercentField({
+function PercentInput({
   label,
   value,
-  onChange,
-  allowNegative = false
+  allowNegative = false,
+  invalid,
+  onChange
 }: {
   label: string;
-  value: number | null;
-  onChange: (value: number | null) => void;
+  value: number;
   allowNegative?: boolean;
+  invalid?: boolean;
+  onChange: (value: number) => void;
 }) {
   return (
-    <label className="grid min-w-0 gap-1 text-sm">
+    <label className="grid min-w-0 gap-1.5 text-sm">
       <span className="font-medium leading-5 text-slateFinance">{label}</span>
       <InputWithSuffix
-        value={toPercentInput(value)}
+        value={Number.isFinite(value) ? value * 100 : Number.NaN}
         suffix="%"
-        min={allowNegative ? undefined : 0}
-        onChange={(nextValue) => onChange(fromPercentInput(nextValue))}
+        allowNegative={allowNegative}
+        invalid={invalid}
+        onChange={(nextValue) => onChange(Number.isFinite(nextValue) ? nextValue / 100 : Number.NaN)}
       />
+    </label>
+  );
+}
+
+function AmountOrPercentInput({
+  label,
+  amount,
+  percent: percentValue,
+  source,
+  base,
+  amountLabel = "AED value",
+  percentLabel = "%",
+  helperText,
+  invalid,
+  preserveAmountOnPercentChange = false,
+  onChange
+}: {
+  label: string;
+  amount: number;
+  percent: number;
+  source: AmountPercentSource;
+  base: number;
+  amountLabel?: string;
+  percentLabel?: string;
+  helperText?: string;
+  invalid?: boolean;
+  preserveAmountOnPercentChange?: boolean;
+  onChange: (value: AmountPercentValue) => void;
+}) {
+  const activeAmount = source === "amount";
+  const activePercent = source === "percent";
+
+  const updateAmount = (nextAmount: number) => {
+    onChange({
+      amount: nextAmount,
+      percent: calculatePercent(nextAmount, base),
+      source: "amount"
+    });
+  };
+
+  const updatePercent = (nextPercentDisplayValue: number) => {
+    const nextPercent = Number.isFinite(nextPercentDisplayValue)
+      ? nextPercentDisplayValue / 100
+      : Number.NaN;
+    onChange({
+      amount:
+        preserveAmountOnPercentChange || !Number.isFinite(base) || base <= 0
+          ? amount
+          : base * nextPercent,
+      percent: nextPercent,
+      source: "percent"
+    });
+  };
+
+  return (
+    <div className="grid min-w-0 gap-1.5 text-sm">
+      <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+        <span className="font-medium leading-5 text-slateFinance">{label}</span>
+        <span className="text-xs font-medium text-tealFinance">
+          Using {source === "amount" ? amountLabel : percentLabel}
+        </span>
+      </div>
+      <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+        <CompactNumberInput
+          label={amountLabel}
+          value={amount}
+          invalid={invalid && activeAmount}
+          active={activeAmount}
+          onChange={updateAmount}
+        />
+        <CompactNumberInput
+          label={percentLabel}
+          value={Number.isFinite(percentValue) ? percentValue * 100 : Number.NaN}
+          suffix="%"
+          invalid={invalid && activePercent}
+          active={activePercent}
+          onChange={updatePercent}
+        />
+      </div>
+      {helperText && <p className="text-xs leading-5 text-slateFinance">{helperText}</p>}
+    </div>
+  );
+}
+
+function CompactNumberInput({
+  label,
+  value,
+  suffix,
+  invalid,
+  active,
+  onChange
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+  invalid?: boolean;
+  active?: boolean;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label
+      className={`grid min-w-0 gap-1 rounded-md border bg-white p-2 ${
+        active ? "border-tealFinance/60" : "border-slate-200"
+      }`}
+    >
+      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slateFinance">
+        {label}
+      </span>
+      {suffix ? (
+        <InputWithSuffix value={value} suffix={suffix} invalid={invalid} onChange={onChange} />
+      ) : (
+        <NumericTextInput value={value} invalid={invalid} onChange={onChange} />
+      )}
+    </label>
+  );
+}
+
+function AreaUnitSelect({
+  value,
+  invalid,
+  onChange
+}: {
+  value: AreaUnit;
+  invalid?: boolean;
+  onChange: (value: AreaUnit) => void;
+}) {
+  return (
+    <label className="grid min-w-0 gap-1.5 text-sm">
+      <span className="font-medium leading-5 text-slateFinance">Area unit</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as AreaUnit)}
+        className={`${inputClass} ${invalid ? invalidInputClass : ""}`}
+      >
+        <option value="sq. ft">sq. ft</option>
+        <option value="sq. m">sq. m</option>
+      </select>
     </label>
   );
 }
@@ -574,76 +839,157 @@ function PercentField({
 function InputWithSuffix({
   value,
   suffix,
-  min,
+  allowNegative = false,
+  invalid,
   onChange
 }: {
-  value: string;
+  value: number;
   suffix: string;
-  min?: number;
-  onChange: (value: string) => void;
+  allowNegative?: boolean;
+  invalid?: boolean;
+  onChange: (value: number) => void;
 }) {
   return (
-    <div className="flex h-10 min-w-0 overflow-hidden rounded-md border border-slate-300 bg-inputAmber transition focus-within:border-tealFinance focus-within:ring-2 focus-within:ring-tealFinance/20">
-      <input
-        type="number"
+    <div
+      className={`flex h-11 min-w-0 overflow-hidden rounded-md border border-slate-300 bg-inputAmber/70 transition focus-within:border-tealFinance focus-within:ring-2 focus-within:ring-tealFinance/20 ${
+        invalid ? invalidInputClass : ""
+      }`}
+    >
+      <NumericTextInput
         value={value}
-        min={min}
-        step={0.01}
-        onChange={(event) => onChange(event.target.value)}
-        className="numeric h-full min-w-0 flex-1 bg-transparent px-3 text-navy outline-none"
+        allowNegative={allowNegative}
+        embedded
+        onChange={onChange}
       />
-      <span className="flex h-full w-10 shrink-0 items-center justify-center border-l border-slate-300 text-sm font-medium text-slateFinance">
+      <span className="flex h-full w-9 shrink-0 items-center justify-center border-l border-slate-300 text-xs font-semibold text-slateFinance">
         {suffix}
       </span>
     </div>
   );
 }
 
-function KpiCards({ preview }: { preview: EvaluationPreview | null }) {
+function NumericTextInput({
+  value,
+  min,
+  max,
+  step,
+  allowNegative = false,
+  embedded = false,
+  invalid,
+  onChange
+}: {
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  allowNegative?: boolean;
+  embedded?: boolean;
+  invalid?: boolean;
+  onChange: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(formatInputNumber(value));
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setDraft(formatInputNumber(value));
+    }
+  }, [isFocused, value]);
+
+  const handleChange = (nextDraft: string) => {
+    setDraft(nextDraft);
+    const parsed = parseNumericInput(nextDraft);
+    onChange(parsed);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    const parsed = parseNumericInput(draft);
+    if (Number.isFinite(parsed)) {
+      setDraft(formatInputNumber(parsed));
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={draft}
+      min={min}
+      max={max}
+      step={step}
+      onFocus={() => setIsFocused(true)}
+      onBlur={handleBlur}
+      onChange={(event) => handleChange(event.target.value)}
+      className={
+        embedded
+          ? "numeric h-full min-w-0 flex-1 bg-transparent px-3 text-sm text-navy outline-none"
+          : `${inputClass} ${invalid ? invalidInputClass : ""}`
+      }
+      aria-invalid={invalid ? "true" : undefined}
+      data-allow-negative={allowNegative ? "true" : "false"}
+    />
+  );
+}
+
+function KpiCards({ preview }: { preview: EvaluationPreview }) {
+  const finalRow = preview.comparisonRows[preview.comparisonRows.length - 1];
   const items: Array<{
     label: string;
     value: string;
     detail?: string;
     tone?: "default" | "positive" | "risk";
-  }> = preview
-    ? [
-        {
-          label: "Principal loan",
-          value: compactMoney(preview.derived.principalLoan),
-          detail: money(preview.derived.principalLoan)
-        },
-        {
-          label: "Monthly instalment",
-          value: compactMoney(preview.derived.monthlyBankInstalment),
-          detail: money(preview.derived.monthlyBankInstalment)
-        },
-        {
-          label: "Total bank payment",
-          value: compactMoney(preview.derived.totalBankPayment),
-          detail: money(preview.derived.totalBankPayment)
-        },
-        {
-          label: "Total interest",
-          value: compactMoney(preview.derived.totalInterest),
-          detail: money(preview.derived.totalInterest)
-        },
-        {
-          label: "Final options comparison",
-          value: compactMoney(preview.finalOptionsComparison),
-          detail: money(preview.finalOptionsComparison),
-          tone: preview.finalOptionsComparison < 0 ? "risk" : "positive"
-        }
-      ]
-    : [
-        { label: "Principal loan", value: "-" },
-        { label: "Monthly instalment", value: "-" },
-        { label: "Total bank payment", value: "-" },
-        { label: "Total interest", value: "-" },
-        { label: "Final options comparison", value: "-" }
-      ];
+  }> = [
+    {
+      label: "Principal loan",
+      value: compactMoney(preview.derived.principalLoan),
+      detail: money(preview.derived.principalLoan)
+    },
+    {
+      label: "Monthly instalment",
+      value: compactMoney(preview.derived.monthlyBankInstalment),
+      detail: money(preview.derived.monthlyBankInstalment)
+    },
+    {
+      label: "Total bank payment",
+      value: compactMoney(preview.derived.totalBankPayment),
+      detail: money(preview.derived.totalBankPayment)
+    },
+    {
+      label: "Total interest",
+      value: compactMoney(preview.derived.totalInterest),
+      detail: money(preview.derived.totalInterest)
+    },
+    {
+      label: "Down payment",
+      value: compactMoney(preview.derived.downPaymentAmount),
+      detail: money(preview.derived.downPaymentAmount)
+    },
+    {
+      label: "Purchase cost",
+      value: compactMoney(preview.derived.purchaseCostAmount),
+      detail: money(preview.derived.purchaseCostAmount)
+    },
+    {
+      label: "Net rental/year",
+      value: compactMoney(preview.derived.netRentalYear),
+      detail: money(preview.derived.netRentalYear)
+    },
+    {
+      label: "Total cost",
+      value: compactMoney(preview.derived.totalCost),
+      detail: money(preview.derived.totalCost)
+    },
+    {
+      label: `Year ${finalRow.year} options comparison`,
+      value: compactMoney(preview.finalOptionsComparison),
+      detail: money(preview.finalOptionsComparison),
+      tone: preview.finalOptionsComparison < 0 ? "risk" : "positive"
+    }
+  ];
 
   return (
-    <div className="grid min-w-0 gap-3 sm:grid-cols-2 2xl:grid-cols-5">
+    <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {items.map((item) => (
         <CompactMetricCard
           key={item.label}
@@ -657,158 +1003,33 @@ function KpiCards({ preview }: { preview: EvaluationPreview | null }) {
   );
 }
 
-function MarketSection({
-  defaultVariations,
-  form,
+function MarketVariationTable({
   preview,
   updateCustomVariation,
-  chartData,
-  hasMounted
+  resetCustomVariation,
+  resetMarketVariations
 }: {
-  defaultVariations: number[];
-  form: EvaluationRequest;
-  preview: EvaluationPreview | null;
+  preview: EvaluationPreview;
   updateCustomVariation: (index: number, value: string) => void;
-  chartData: Array<{
-    year: number;
-    defaultVariation: number;
-    customVariation: number | null;
-    selectedVariation: number;
-  }>;
-  hasMounted: boolean;
+  resetCustomVariation: (index: number) => void;
+  resetMarketVariations: () => void;
 }) {
   return (
-    <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)]">
-      <div className="min-w-0">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm leading-6 text-slateFinance">
-            Default and custom rows stay aligned with the selected loan term.
-          </p>
-          <div className="w-fit rounded-md border border-slate-200 bg-creamFinance px-3 py-2 text-sm font-semibold text-tealFinance">
-            Scenario: {form.scenario}
-          </div>
-        </div>
-        <div className="grid min-w-0 gap-4 xl:grid-cols-2 2xl:grid-cols-1">
-          <MarketTable title="Default Market Variation">
-            {defaultVariations.map((variation, index) => (
-              <tr key={index} className="border-t border-slate-200">
-                <Td>{index + 1}</Td>
-                <Td>{percent(variation)}</Td>
-                <Td>{money(form.propertyNetPurchasePrice * (1 + variation))}</Td>
-              </tr>
-            ))}
-          </MarketTable>
-
-          <MarketTable title="Custom Market Variation">
-            {form.customMarketVariations.map((variation, index) => (
-              <tr key={index} className="border-t border-slate-200">
-                <Td>{index + 1}</Td>
-                <td className="px-2 py-2">
-                  <div className="flex h-9 min-w-[96px] overflow-hidden rounded-md border border-slate-300 bg-inputAmber">
-                    <input
-                      type="number"
-                      value={toPercentInput(variation)}
-                      step={0.01}
-                      onChange={(event) => updateCustomVariation(index, event.target.value)}
-                      className="numeric h-full min-w-0 flex-1 bg-transparent px-2 text-right outline-none focus:ring-2 focus:ring-tealFinance/20"
-                    />
-                    <span className="flex h-full w-8 shrink-0 items-center justify-center border-l border-slate-300 text-xs text-slateFinance">
-                      %
-                    </span>
-                  </div>
-                </td>
-                <Td>
-                  {variation === null
-                    ? "-"
-                    : money(form.propertyNetPurchasePrice * (1 + variation))}
-                </Td>
-              </tr>
-            ))}
-          </MarketTable>
-        </div>
+    <div className="min-w-0">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm leading-6 text-slateFinance">
+          Default values appear first. Edited rows override the default for that year.
+        </p>
+        <button
+          type="button"
+          onClick={resetMarketVariations}
+          className="w-fit rounded-md border border-tealFinance bg-white px-3 py-2 text-sm font-semibold text-tealFinance transition hover:bg-tealFinance hover:text-white"
+        >
+          Reset to Default
+        </button>
       </div>
-
-      <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
-        <h3 className="text-base font-semibold text-navy">Property Market Price Fluctuations</h3>
-        <div className="mt-4 h-[320px] min-h-[320px] min-w-0">
-          {hasMounted ? (
-            <ResponsiveContainer width="100%" height="100%" minWidth={260} minHeight={280}>
-              <LineChart data={chartData} margin={{ top: 12, right: 18, bottom: 12, left: 0 }}>
-                <CartesianGrid stroke="#CBD5E1" strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="year"
-                  tick={{ fill: "#334155", fontSize: 12 }}
-                  axisLine={{ stroke: "#94A3B8" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: "#334155", fontSize: 12 }}
-                  axisLine={{ stroke: "#94A3B8" }}
-                  tickLine={false}
-                  tickFormatter={(value) => `${value}%`}
-                />
-                <Tooltip
-                  formatter={(value, name) => {
-                    const displayValue = typeof value === "number" ? `${value.toFixed(2)}%` : "-";
-                    const label =
-                      name === "selectedVariation"
-                        ? "Selected"
-                        : name === "customVariation"
-                          ? "Custom"
-                          : "Default";
-                    return [displayValue, label];
-                  }}
-                  labelFormatter={(label) => `Year ${label}`}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="defaultVariation"
-                  name="Default"
-                  stroke="#0F766E"
-                  strokeWidth={2}
-                  dot={{ r: 2.5 }}
-                  activeDot={{ r: 5 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="customVariation"
-                  name="Custom"
-                  stroke="#D4AF37"
-                  strokeWidth={2}
-                  dot={{ r: 2.5 }}
-                  connectNulls={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="selectedVariation"
-                  name="Selected"
-                  stroke="#102A43"
-                  strokeWidth={2.6}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-full rounded-lg border border-slate-200 bg-creamFinance" />
-          )}
-        </div>
-        {preview && (
-          <div className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-            <Metric label="Net rental/year" value={money(preview.derived.netRentalYear)} />
-            <Metric label="Total cost" value={money(preview.derived.totalCost)} />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function MarketTable({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="min-w-0 overflow-hidden rounded-lg border border-slate-200">
-      <TableTitle title={title} />
-      <div className="scrollbar-soft overflow-x-auto">
-        <table className="w-full min-w-[360px] text-sm">
+      <div className="scrollbar-soft overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <table className="w-full min-w-[520px] text-sm">
           <thead className="bg-navy text-white">
             <tr>
               <Th>Year</Th>
@@ -816,61 +1037,126 @@ function MarketTable({ title, children }: { title: string; children: ReactNode }
               <Th>Selling Price</Th>
             </tr>
           </thead>
-          <tbody>{children}</tbody>
+          <tbody>
+            {preview.marketRows.map((row, index) => {
+              const isCustom = row.customMarketVariation !== null;
+              return (
+                <tr key={row.year} className="border-t border-slate-200">
+                  <Td>{row.year}</Td>
+                  <td className="px-3 py-2 align-top">
+                    <div className="grid min-w-[150px] gap-1">
+                      <InputWithSuffix
+                        value={row.selectedMarketVariation * 100}
+                        suffix="%"
+                        allowNegative
+                        onChange={(value) =>
+                          updateCustomVariation(
+                            index,
+                            Number.isFinite(value) ? String(value) : ""
+                          )
+                        }
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        {isCustom && (
+                          <span className="rounded-full bg-panelBlue px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-tealFinance">
+                            Custom
+                          </span>
+                        )}
+                        {isCustom && (
+                          <button
+                            type="button"
+                            onClick={() => resetCustomVariation(index)}
+                            className="text-xs font-semibold text-slateFinance transition hover:text-tealFinance"
+                          >
+                            Reset row
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <Td>{money(row.selectedSellingPrice)}</Td>
+                </tr>
+              );
+            })}
+          </tbody>
         </table>
       </div>
     </div>
   );
 }
 
-function ResultsPanel({ preview }: { preview: EvaluationPreview | null }) {
-  if (!preview) {
-    return <p className="text-sm leading-6 text-slateFinance">Preview data will appear after validation.</p>;
-  }
-
-  const finalRow = preview.comparisonRows[preview.comparisonRows.length - 1];
-
+function MarketChart({
+  chartData,
+  hasMounted
+}: {
+  chartData: Array<{ year: number; variation: number; sellingPrice: number }>;
+  hasMounted: boolean;
+}) {
   return (
-    <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Down payment" value={money(preview.derived.downPaymentAmount)} />
-      <Metric label="Purchase cost" value={money(preview.derived.purchaseCostAmount)} />
-      <Metric label="Net rental/year" value={money(preview.derived.netRentalYear)} />
-      <Metric
-        label={`Year ${finalRow.year} comparison`}
-        value={money(finalRow.optionsComparison)}
-        tone={finalRow.optionsComparison < 0 ? "risk" : "positive"}
-      />
+    <div className="h-[340px] min-h-[340px] min-w-0">
+      {hasMounted ? (
+        <ResponsiveContainer width="100%" height="100%" minWidth={260} minHeight={300}>
+          <LineChart data={chartData} margin={{ top: 12, right: 18, bottom: 12, left: 0 }}>
+            <CartesianGrid stroke="#CBD5E1" strokeDasharray="3 3" />
+            <XAxis
+              dataKey="year"
+              tick={{ fill: "#334155", fontSize: 12 }}
+              axisLine={{ stroke: "#94A3B8" }}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fill: "#334155", fontSize: 12 }}
+              axisLine={{ stroke: "#94A3B8" }}
+              tickLine={false}
+              width={74}
+              tickFormatter={(value) => compactMoney(Number(value)).replace("AED ", "")}
+            />
+            <Tooltip
+              formatter={(value, name) => {
+                if (name === "sellingPrice" && typeof value === "number") {
+                  return [money(value), "Selling price"];
+                }
+                return [String(value), String(name)];
+              }}
+              labelFormatter={(label) => `Year ${label}`}
+            />
+            <Line
+              type="monotone"
+              dataKey="sellingPrice"
+              name="Selling price"
+              stroke="#0F766E"
+              strokeWidth={2.6}
+              dot={{ r: 2.5 }}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="h-full rounded-lg border border-slate-200 bg-creamFinance" />
+      )}
     </div>
   );
 }
 
-function DetailedTables({ preview }: { preview: EvaluationPreview | null }) {
+function DetailedTables({ preview }: { preview: EvaluationPreview }) {
   return (
-    <section className="border-t border-slate-200 bg-creamFinance/60 p-4 sm:p-6">
-      <div className="mb-4">
-        <SectionTitle title="Detailed Tables" />
-        <p className="mt-2 text-sm leading-6 text-slateFinance">
-          Open these sections when you need the full year-by-year rent-vs-buy or amortization view.
-        </p>
-      </div>
-      <div className="grid gap-4">
-        <details className="rounded-lg border border-slate-200 bg-white">
-          <summary className="cursor-pointer px-4 py-3 text-base font-semibold text-navy">
-            Detailed Rent vs Buying Table
-          </summary>
-          <div className="border-t border-slate-200 p-4">
-            {preview ? <ComparisonTable preview={preview} /> : <EmptyPanel />}
-          </div>
-        </details>
-        <details className="rounded-lg border border-slate-200 bg-white">
-          <summary className="cursor-pointer px-4 py-3 text-base font-semibold text-navy">
-            Amortization Schedule
-          </summary>
-          <div className="border-t border-slate-200 p-4">
-            {preview ? <AmortizationSummary preview={preview} /> : <EmptyPanel />}
-          </div>
-        </details>
-      </div>
+    <section className="mt-6 grid gap-4">
+      <details className="rounded-lg border border-slate-200 bg-white">
+        <summary className="cursor-pointer px-4 py-3 text-base font-semibold text-navy">
+          Detailed Rent vs Buying Comparison
+        </summary>
+        <div className="border-t border-slate-200 p-4">
+          <ComparisonTable preview={preview} />
+        </div>
+      </details>
+      <details className="rounded-lg border border-slate-200 bg-white">
+        <summary className="cursor-pointer px-4 py-3 text-base font-semibold text-navy">
+          Amortization Schedule
+        </summary>
+        <div className="border-t border-slate-200 p-4">
+          <AmortizationSummary preview={preview} />
+        </div>
+      </details>
     </section>
   );
 }
@@ -881,7 +1167,9 @@ function ComparisonTable({ preview }: { preview: EvaluationPreview }) {
       <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-navy">Rental vs Buying Comparison</h3>
-          <p className="text-sm text-slateFinance">Year-by-year rent, financing, resale, and cost view.</p>
+          <p className="text-sm text-slateFinance">
+            Year-by-year rent, financing, resale, and cost view.
+          </p>
         </div>
         <span className="text-sm font-semibold text-tealFinance">
           {preview.comparisonRows.length} rows
@@ -970,7 +1258,9 @@ function AmortizationSummary({ preview }: { preview: EvaluationPreview }) {
       <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-navy">Amortization Calculator</h3>
-          <p className="text-sm text-slateFinance">Reference: https://mymortgage.ae/calculator</p>
+          <p className="text-sm text-slateFinance">
+            Annual mortgage payment, interest, principal, and balance view.
+          </p>
         </div>
         <span className="text-sm font-semibold text-tealFinance">
           {preview.amortizationSummaryRows.length} years
@@ -1024,7 +1314,7 @@ function CalculatorBlock({
   children: ReactNode;
 }) {
   return (
-    <section className="min-w-0 rounded-lg border border-slate-200 bg-creamFinance/60 p-4">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-navy">{title}</h3>
         {detail && <p className="mt-1 text-sm leading-6 text-slateFinance">{detail}</p>}
@@ -1034,21 +1324,25 @@ function CalculatorBlock({
   );
 }
 
-function SectionTitle({ title }: { title: string }) {
-  return <h2 className="text-lg font-semibold text-navy">{title}</h2>;
-}
-
-function TableTitle({ title }: { title: string }) {
+function ValidationSummary({ errors }: { errors: string[] }) {
   return (
-    <div className="bg-tealFinance px-3 py-2 text-center text-sm font-semibold text-white">
-      {title}
-    </div>
+    <section className="mt-5 rounded-md border border-riskRed/20 bg-[#fff7f7] p-4 text-sm text-riskRed">
+      <p className="font-semibold">Please complete these fields before generating results:</p>
+      <ul className="mt-2 grid gap-1">
+        {errors.map((error) => (
+          <li key={error}>{error}</li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
 function Th({ children, colSpan }: { children: ReactNode; colSpan?: number }) {
   return (
-    <th colSpan={colSpan} className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase">
+    <th
+      colSpan={colSpan}
+      className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase"
+    >
       {children}
     </th>
   );
@@ -1062,30 +1356,27 @@ function Td({ children, className = "" }: { children: ReactNode; className?: str
   );
 }
 
-function Metric({
-  label,
-  value,
-  tone = "default"
-}: {
-  label: string;
-  value: string;
-  tone?: "default" | "positive" | "risk";
-}) {
-  const valueClass =
-    tone === "positive" ? "text-positiveGreen" : tone === "risk" ? "text-riskRed" : "text-navy";
-
-  return (
-    <div className="min-w-0 rounded-md border border-slate-200 bg-white px-3 py-2">
-      <p className="truncate text-xs font-semibold uppercase text-slateFinance">{label}</p>
-      <p className={`numeric mt-1 truncate text-sm font-semibold ${valueClass}`} title={value}>
-        {value}
-      </p>
-    </div>
-  );
+function parseNumericInput(value: string): number {
+  const normalized = value.replace(/,/g, "").trim();
+  if (!normalized) {
+    return Number.NaN;
+  }
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
-function EmptyPanel() {
-  return <p className="text-sm text-slateFinance">Preview data will appear after validation.</p>;
+function formatInputNumber(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+  const rounded = Math.round(value * 10000) / 10000;
+  return String(rounded);
+}
+
+function calculatePercent(amount: number, base: number): number {
+  return Number.isFinite(amount) && Number.isFinite(base) && base > 0
+    ? amount / base
+    : Number.NaN;
 }
 
 function compactMoney(value: number): string {
@@ -1104,38 +1395,93 @@ function compactMoney(value: number): string {
   return `${prefix}${numberValue(absoluteValue)}`;
 }
 
+function validNonNegative(value: number): boolean {
+  return Number.isFinite(value) && value >= 0;
+}
+
+function validPositive(value: number): boolean {
+  return Number.isFinite(value) && value > 0;
+}
+
+function validPair(amount: number, percentage: number, source: AmountPercentSource): boolean {
+  if (source === "amount") {
+    return validNonNegative(amount);
+  }
+  return validNonNegative(percentage);
+}
+
+function getFieldErrors(form: EvaluationRequest): FieldErrors {
+  return {
+    propertyName: !form.propertyName.trim(),
+    propertyNetPurchasePrice: !validPositive(form.propertyNetPurchasePrice),
+    areaValue: !validPositive(form.areaValue),
+    areaUnit: form.areaUnit !== "sq. ft" && form.areaUnit !== "sq. m",
+    downPayment: !validPair(form.downPaymentAmount, form.downPaymentPct, form.downPaymentSource),
+    purchaseCost: !validPair(
+      form.purchaseCostAmount,
+      form.purchaseCostPct,
+      form.purchaseCostSource
+    ),
+    loanTermYears:
+      !Number.isInteger(form.loanTermYears) || form.loanTermYears < 1 || form.loanTermYears > 40,
+    mortgageRatePct: !validNonNegative(form.mortgageRatePct),
+    earlyPaymentFee: !validPair(
+      form.earlyPaymentFeeAmount,
+      form.earlyPaymentFeePct,
+      form.earlyPaymentFeeSource
+    ),
+    rentYield: !validPair(form.currentRentPerYear, form.rentYieldPct, form.rentYieldSource),
+    serviceChargePerSqFt: !validNonNegative(form.serviceChargePerSqFt),
+    savingsProfitRate: !validPair(
+      form.savingsProfitAmount,
+      form.savingsProfitRatePct,
+      form.savingsProfitRateSource
+    )
+  };
+}
+
 function validateForm(form: EvaluationRequest): string[] {
   const errors: string[] = [];
-  if (!form.propertyName.trim()) {
-    errors.push("Property name is required.");
+  const fields = getFieldErrors(form);
+
+  if (fields.propertyName) {
+    errors.push("Property name / description is required.");
   }
-  if (!Number.isFinite(form.propertyNetPurchasePrice) || form.propertyNetPurchasePrice <= 0) {
+  if (fields.propertyNetPurchasePrice) {
     errors.push("Property net purchase price must be positive.");
   }
-  if (!Number.isFinite(form.areaSqFt) || form.areaSqFt <= 0) {
-    errors.push("Area must be positive.");
+  if (fields.areaValue) {
+    errors.push("Area value must be positive.");
   }
-  if (!Number.isInteger(form.loanTermYears) || form.loanTermYears < 1 || form.loanTermYears > 40) {
-    errors.push("Loan term must be an integer from 1 to 40.");
+  if (fields.areaUnit) {
+    errors.push("Area unit is required.");
   }
-  const nonMarketPercentages = [
-    ["Down payment", form.downPaymentPct],
-    ["Purchase cost", form.purchaseCostPct],
-    ["Mortgage rate", form.mortgageRatePct],
-    ["Early payment fee", form.earlyPaymentFeePct],
-    ["Current rent", form.rentYieldPct],
-    ["Savings profit rate", form.savingsProfitRatePct]
-  ] as const;
-  for (const [label, value] of nonMarketPercentages) {
-    if (!Number.isFinite(value) || value < 0) {
-      errors.push(`${label} percentage cannot be negative.`);
-    }
+  if (fields.downPayment) {
+    errors.push("Down payment requires a valid AED value or percentage.");
+  }
+  if (fields.purchaseCost) {
+    errors.push("Purchase cost requires a valid AED value or percentage.");
+  }
+  if (fields.loanTermYears) {
+    errors.push("Loan payment period must be an integer from 1 to 40.");
+  }
+  if (fields.mortgageRatePct) {
+    errors.push("Mortgage rate must be zero or positive.");
+  }
+  if (fields.earlyPaymentFee) {
+    errors.push("Early payment fee requires a valid AED cap/value or percentage.");
+  }
+  if (fields.rentYield) {
+    errors.push("Current rent requires a valid annual AED value or yield percentage.");
+  }
+  if (fields.serviceChargePerSqFt) {
+    errors.push("Service charges must be zero or positive.");
+  }
+  if (fields.savingsProfitRate) {
+    errors.push("Profit rate savings can earn per year requires a valid AED value or percentage.");
   }
   if (form.customMarketVariations.length !== form.loanTermYears) {
-    errors.push("Custom market variation rows must match loan term.");
-  }
-  if (!Number.isFinite(form.serviceChargePerSqFt) || form.serviceChargePerSqFt < 0) {
-    errors.push("Service charges must be zero or positive.");
+    errors.push("Market variation rows must match the selected loan term.");
   }
   return errors;
 }
