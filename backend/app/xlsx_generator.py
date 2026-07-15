@@ -19,7 +19,7 @@ def generate_workbook(inputs: EvaluationRequest) -> bytes:
     workbook = xlsxwriter.Workbook(output, {"in_memory": True})
     workbook.set_calc_mode("auto")
 
-    formats = _build_formats(workbook)
+    formats = _build_formats(workbook, preview.inputs.currencyCode)
     eval_ws = workbook.add_worksheet("Evalfuture")
     amort_ws = workbook.add_worksheet("amort")
 
@@ -31,7 +31,10 @@ def generate_workbook(inputs: EvaluationRequest) -> bytes:
     return output.getvalue()
 
 
-def _build_formats(workbook: xlsxwriter.Workbook) -> dict[str, xlsxwriter.format.Format]:
+def _build_formats(
+    workbook: xlsxwriter.Workbook,
+    currency_code: str,
+) -> dict[str, xlsxwriter.format.Format]:
     navy = "#0B1F33"
     slate = "#334155"
     teal = "#0F766E"
@@ -50,6 +53,7 @@ def _build_formats(workbook: xlsxwriter.Workbook) -> dict[str, xlsxwriter.format
         "border_color": border,
         "valign": "vcenter",
     }
+    currency_format = f'"{currency_code}" #,##0;[Red]-"{currency_code}" #,##0'
 
     return {
         "title": workbook.add_format(
@@ -64,7 +68,7 @@ def _build_formats(workbook: xlsxwriter.Workbook) -> dict[str, xlsxwriter.format
         ),
         "label": workbook.add_format({**base, "font_color": slate, "bg_color": cream}),
         "input": workbook.add_format(
-            {**base, "bg_color": amber, "font_color": navy, "num_format": '#,##0.00'}
+            {**base, "bg_color": amber, "font_color": navy, "num_format": currency_format}
         ),
         "input_int": workbook.add_format(
             {**base, "bg_color": amber, "font_color": navy, "num_format": "0"}
@@ -73,7 +77,7 @@ def _build_formats(workbook: xlsxwriter.Workbook) -> dict[str, xlsxwriter.format
             {**base, "bg_color": amber, "font_color": navy, "num_format": "0.00%"}
         ),
         "formula": workbook.add_format(
-            {**base, "bg_color": "#FFFFFF", "font_color": navy, "num_format": '#,##0.00'}
+            {**base, "bg_color": "#FFFFFF", "font_color": navy, "num_format": currency_format}
         ),
         "formula_pct": workbook.add_format(
             {**base, "bg_color": "#FFFFFF", "font_color": navy, "num_format": "0.00%"}
@@ -106,13 +110,13 @@ def _build_formats(workbook: xlsxwriter.Workbook) -> dict[str, xlsxwriter.format
             }
         ),
         "year": workbook.add_format({**base, "align": "center", "num_format": "0"}),
-        "currency": workbook.add_format({**base, "num_format": '#,##0.00'}),
+        "currency": workbook.add_format({**base, "num_format": currency_format}),
         "pct": workbook.add_format({**base, "num_format": "0.00%"}),
         "money_pos": workbook.add_format(
-            {**base, "font_color": green, "num_format": '#,##0.00'}
+            {**base, "font_color": green, "num_format": currency_format}
         ),
         "money_neg": workbook.add_format(
-            {**base, "font_color": red, "num_format": '#,##0.00'}
+            {**base, "font_color": red, "num_format": currency_format}
         ),
         "note": workbook.add_format(
             {"font_name": "Aptos", "font_size": 9, "font_color": slate, "italic": True}
@@ -126,7 +130,7 @@ def _build_formats(workbook: xlsxwriter.Workbook) -> dict[str, xlsxwriter.format
                 "bold": True,
                 "font_color": navy,
                 "bg_color": gold,
-                "num_format": '#,##0.00',
+                "num_format": currency_format,
             }
         ),
     }
@@ -149,6 +153,7 @@ def _write_evalfuture_sheet(
     ws.set_column("E:G", 18)
     ws.set_column("H:H", 22)
     ws.set_column("I:O", 18)
+    ws.set_column("Q:S", 16, None, {"hidden": True})
 
     labels = [
         "Property Net Purchase Price",
@@ -160,7 +165,7 @@ def _write_evalfuture_sheet(
         "Early Payment Fee",
         "Current Rent of Property/year",
         "Service Charges Rate/per sq. ft/year",
-        "Profit rate which your savings can earn for you/year",
+        "Profit rate your savings can earn per year",
         "Total initial funds required (down payment + purchase cost)",
         "Principal Loan",
         "Bank monthly instalment",
@@ -175,7 +180,17 @@ def _write_evalfuture_sheet(
     for row, label in enumerate(labels):
         ws.write(row, 0, label, fmt["label"])
 
-    ws.write("H1", inputs.propertyName, fmt["title"])
+    ws.merge_range("H1:O1", inputs.propertyName, fmt["title"])
+    customer_rows = [
+        ("I2", "Customer name", "J2", inputs.customerName),
+        ("I3", "Customer email", "J3", inputs.customerEmail),
+        ("I4", "Customer phone", "J4", inputs.customerPhone),
+        ("I5", "Customer notes / message", "J5", inputs.customerNotes or "Not provided"),
+        ("I6", "Currency", "J6", inputs.currencyCode),
+    ]
+    for label_cell, label, value_cell, value in customer_rows:
+        ws.write(label_cell, label, fmt["label"])
+        ws.write(value_cell, value, fmt["formula"])
     ws.write_number("F1", inputs.propertyNetPurchasePrice, fmt["input"])
     ws.write_number("F2", inputs.areaSqFt, fmt["input"])
     ws.write_number("F3", inputs.downPaymentPct, fmt["input_pct"])
@@ -183,6 +198,9 @@ def _write_evalfuture_sheet(
     ws.write_number("F5", inputs.loanTermYears, fmt["input_int"])
     ws.write_number("F6", inputs.mortgageRatePct, fmt["input_pct"])
     ws.write_number("F7", inputs.earlyPaymentFeePct, fmt["input_pct"])
+    ws.write_number("G7", inputs.earlyPaymentFeeAmount, fmt["input"])
+    ws.write("H7", inputs.earlyPaymentFeeSource, fmt["input"])
+    ws.data_validation("H7", {"validate": "list", "source": ["amount", "percent"]})
     ws.write_number("F8", inputs.rentYieldPct, fmt["input_pct"])
     ws.write_number("F9", inputs.serviceChargePerSqFt, fmt["input"])
     ws.write_number("F10", inputs.savingsProfitRatePct, fmt["input_pct"])
@@ -222,7 +240,6 @@ def _write_market_tables(
     market_start_row = 22
     header_row = 23
     data_start = 24
-    last_data_row = data_start + loan_term - 1
 
     ws.merge_range(market_start_row, 0, market_start_row, 2, "Default Market Variation", fmt["section"])
     ws.merge_range(market_start_row, 4, market_start_row, 6, "Custom Market Variation", fmt["section"])
@@ -274,30 +291,33 @@ def _write_market_tables(
             custom_price_value,
         )
 
+    chart_data_start = 1
+    ws.write_row(0, 16, ["Chart Year", "Chart Variation", "Chart Selling Price"], fmt["navy_header"])
+    ws.write_number(chart_data_start, 16, 0, fmt["year"])
+    ws.write_number(chart_data_start, 17, 0, fmt["pct"])
+    ws.write_number(chart_data_start, 18, preview.inputs.propertyNetPurchasePrice, fmt["currency"])
+    for index, market in enumerate(preview.marketRows, start=1):
+        ws.write_number(chart_data_start + index, 16, market.year, fmt["year"])
+        ws.write_number(chart_data_start + index, 17, market.selectedMarketVariation, fmt["pct"])
+        ws.write_number(chart_data_start + index, 18, _currency(market.selectedSellingPrice), fmt["currency"])
+
     chart = workbook.add_chart({"type": "line"})
-    categories = f"=Evalfuture!{xl_range_abs(data_start, 0, last_data_row, 0)}"
+    chart_last_row = chart_data_start + loan_term
+    categories = f"=Evalfuture!{xl_range_abs(chart_data_start, 16, chart_last_row, 16)}"
     chart.add_series(
         {
-            "name": "Default Market Variation",
+            "name": "Selected Selling Price",
             "categories": categories,
-            "values": f"=Evalfuture!{xl_range_abs(data_start, 1, last_data_row, 1)}",
+            "values": f"=Evalfuture!{xl_range_abs(chart_data_start, 18, chart_last_row, 18)}",
             "line": {"color": "#0F766E", "width": 2.25},
-        }
-    )
-    chart.add_series(
-        {
-            "name": "Custom Market Variation",
-            "categories": categories,
-            "values": f"=Evalfuture!{xl_range_abs(data_start, 5, last_data_row, 5)}",
-            "line": {"color": "#D4AF37", "width": 2.25},
         }
     )
     chart.set_title({"name": "Property Market Price Fluctuations"})
     chart.set_x_axis({"name": "Years"})
-    chart.set_y_axis({"name": "% change from current price", "num_format": "0%"})
+    chart.set_y_axis({"name": f"Selling price ({preview.inputs.currencyCode})", "num_format": "#,##0"})
     chart.set_legend({"position": "bottom"})
     chart.set_size({"width": 700, "height": 330})
-    ws.insert_chart("I3", chart)
+    ws.insert_chart("I8", chart)
 
 
 def _comparison_layout(preview: EvaluationPreview) -> tuple[int, int, int, int]:
@@ -345,6 +365,10 @@ def _write_comparison_table(
         excel_row = row + 1
         variation_row = 25 + index
         amort_row = 8 + index
+        settlement_formula = (
+            f'=IF($H$7="amount",MIN(MAX(0,$G$7),MAX(0,$G$12-I{excel_row})),'
+            f'MAX(0,$G$12-I{excel_row})*$F$7)'
+        )
         if index == 0:
             formulas = [
                 ("=1", row_model.year, "year"),
@@ -358,7 +382,7 @@ def _write_comparison_table(
                 (f"=H{excel_row}", row_model.totalPrincipal, "currency"),
                 (f"=F{excel_row}+G$17", row_model.totalCost, "currency"),
                 (
-                    f"=IF((G$12-I{excel_row})*F$7>10000,10000,(G$12-I{excel_row})*F$7)",
+                    settlement_formula,
                     row_model.earlySettlementCost,
                     "currency",
                 ),
@@ -369,7 +393,7 @@ def _write_comparison_table(
                 ),
                 (f"=F$1*(L{excel_row}+1)", row_model.propertyMarketPrice, "currency"),
                 (
-                    f"=(G$3+I{excel_row})*(1+L{excel_row})-K{excel_row}",
+                    f"=M{excel_row}-MAX(0,G$12-I{excel_row})-K{excel_row}",
                     row_model.netTotalResale,
                     "currency",
                 ),
@@ -401,7 +425,7 @@ def _write_comparison_table(
                 (f"=I{prev_row}+H{excel_row}", row_model.totalPrincipal, "currency"),
                 (f"=F{excel_row}+G$17", row_model.totalCost, "currency"),
                 (
-                    f"=IF((G$12-I{excel_row})*F$7>10000,10000,(G$12-I{excel_row})*F$7)",
+                    settlement_formula,
                     row_model.earlySettlementCost,
                     "currency",
                 ),
@@ -412,7 +436,7 @@ def _write_comparison_table(
                 ),
                 (f"=F$1*(L{excel_row}+1)", row_model.propertyMarketPrice, "currency"),
                 (
-                    f"=(G$3+I{excel_row})*(1+L{excel_row})-K{excel_row}",
+                    f"=M{excel_row}-MAX(0,G$12-I{excel_row})-K{excel_row}",
                     row_model.netTotalResale,
                     "currency",
                 ),
@@ -449,6 +473,23 @@ def _write_comparison_table(
         else:
             ws.write_blank(total_row, col, None, fmt["total"])
     ws.set_row(total_row, 22)
+    final_result_row = total_row + 2
+    ws.merge_range(
+        final_result_row,
+        0,
+        final_result_row,
+        13,
+        f"Final result (Year {preview.comparisonRows[-1].year})",
+        fmt["section"],
+    )
+    final_format = fmt["money_neg"] if preview.finalOptionsComparison < 0 else fmt["money_pos"]
+    ws.write_formula(
+        final_result_row,
+        14,
+        f"=O{last_data_excel}",
+        final_format,
+        _currency(preview.finalOptionsComparison),
+    )
     ws.conditional_format(
         data_start,
         14,

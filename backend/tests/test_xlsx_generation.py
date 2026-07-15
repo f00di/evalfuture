@@ -29,15 +29,14 @@ def test_workbook_has_exactly_two_visible_sheets() -> None:
     assert all(sheet.attrib.get("state", "visible") == "visible" for sheet in sheet_nodes)
 
 
-def test_loan_term_10_chart_uses_exactly_10_market_points() -> None:
+def test_loan_term_10_chart_includes_year_zero_and_10_market_points() -> None:
     workbook = generate_workbook(EvaluationRequest(loanTermYears=10))
     chart_root = _xml_from_zip(workbook, "xl/charts/chart1.xml")
     formulas = [node.text for node in chart_root.findall(".//chart:f", NS)]
 
-    assert "Evalfuture!$A$25:$A$34" in formulas
-    assert "Evalfuture!$B$25:$B$34" in formulas
-    assert "Evalfuture!$F$25:$F$34" in formulas
-    assert all("$A$25:$A$64" not in formula for formula in formulas if formula)
+    assert "Evalfuture!$Q$2:$Q$12" in formulas
+    assert "Evalfuture!$S$2:$S$12" in formulas
+    assert all("$Q$2:$Q$42" not in formula for formula in formulas if formula)
 
 
 def test_loan_term_10_has_no_visible_40_row_market_table_cells() -> None:
@@ -55,3 +54,20 @@ def test_loan_term_10_has_no_visible_40_row_market_table_cells() -> None:
     assert "G34" in cells
     assert "A35" not in cells
     assert "C64" not in cells
+
+
+def test_workbook_settlement_formula_uses_current_mode_without_hardcoded_cap() -> None:
+    workbook = generate_workbook(
+        EvaluationRequest(
+            earlyPaymentFeeSource="amount",
+            earlyPaymentFeeAmount=12_345,
+            earlyPaymentFeePct=0.05,
+        )
+    )
+    sheet_root = _xml_from_zip(workbook, "xl/worksheets/sheet1.xml")
+    formulas = [node.text or "" for node in sheet_root.findall(".//main:f", NS)]
+    settlement_formulas = [formula for formula in formulas if "$H$7" in formula]
+
+    assert settlement_formulas
+    assert all("10000" not in formula for formula in settlement_formulas)
+    assert all("$G$7" in formula and "$F$7" in formula for formula in settlement_formulas)

@@ -5,6 +5,7 @@ export type AmountPercentSource = "amount" | "percent";
 export const SQM_TO_SQFT = 10.7639;
 
 export const currencyOptions = [
+  { code: "AED", label: "AED - UAE dirham" },
   { code: "USD", label: "USD - US dollar" },
   { code: "EUR", label: "EUR - Euro" },
   { code: "GBP", label: "GBP - British pound" },
@@ -15,9 +16,13 @@ export const currencyOptions = [
 ] as const;
 
 export type CurrencyCode = (typeof currencyOptions)[number]["code"];
-export const DEFAULT_CURRENCY_CODE: CurrencyCode = "USD";
+export const DEFAULT_CURRENCY_CODE: CurrencyCode = "AED";
 
 export interface EvaluationRequest {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerNotes: string;
   propertyName: string;
   currencyCode: CurrencyCode;
   propertyNetPurchasePrice: number;
@@ -126,6 +131,10 @@ export interface EvaluationPreview {
 }
 
 export const defaultRequest: EvaluationRequest = {
+  customerName: "",
+  customerEmail: "",
+  customerPhone: "",
+  customerNotes: "",
   propertyName: "2 BR Apartment in Reem Island",
   currencyCode: DEFAULT_CURRENCY_CODE,
   propertyNetPurchasePrice: 1500000,
@@ -150,7 +159,7 @@ export const defaultRequest: EvaluationRequest = {
   savingsProfitAmount: 18750,
   savingsProfitRatePct: 0.05,
   savingsProfitRateSource: "percent",
-  scenario: "Custom",
+  scenario: "Default",
   customMarketVariations: Array.from({ length: 10 }, () => null)
 };
 
@@ -194,7 +203,8 @@ export function money(value: number, currencyCode: CurrencyCode = DEFAULT_CURREN
     return new Intl.NumberFormat("en", {
       style: "currency",
       currency: currencyCode,
-      maximumFractionDigits: 2
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(value);
   } catch {
     return `${currencyCode} ${numberValue(value)}`;
@@ -321,11 +331,9 @@ export function normalizeEvaluationRequest(inputs: EvaluationRequest): Evaluatio
   const earlyPaymentFeePct =
     inputs.earlyPaymentFeeSource === "amount" &&
     Number.isFinite(inputs.earlyPaymentFeeAmount) &&
-    Number.isFinite(principalLoan) &&
     principalLoan > 0
       ? inputs.earlyPaymentFeeAmount / principalLoan
       : inputs.earlyPaymentFeePct;
-
   return {
     ...inputs,
     areaSqFt,
@@ -337,11 +345,9 @@ export function normalizeEvaluationRequest(inputs: EvaluationRequest): Evaluatio
     rentYieldPct: rent.percent,
     savingsProfitAmount: savings.amount,
     savingsProfitRatePct: savings.percent,
-    earlyPaymentFeeAmount: Number.isFinite(inputs.earlyPaymentFeeAmount)
-      ? inputs.earlyPaymentFeeAmount
-      : 10000,
+    earlyPaymentFeeAmount: inputs.earlyPaymentFeeAmount,
     earlyPaymentFeePct,
-    scenario: "Custom",
+    scenario: inputs.scenario,
     customMarketVariations: resizeCustomVariations(
       inputs.customMarketVariations,
       Math.max(0, Math.min(40, Number.isFinite(inputs.loanTermYears) ? inputs.loanTermYears : 0))
@@ -349,8 +355,14 @@ export function normalizeEvaluationRequest(inputs: EvaluationRequest): Evaluatio
   };
 }
 
-function selectedVariation(defaultVariation: number, customVariation: number | null): number {
-  return customVariation ?? defaultVariation;
+function selectedVariation(
+  scenario: Scenario,
+  defaultVariation: number,
+  customVariation: number | null
+): number {
+  return scenario === "Custom" && customVariation !== null
+    ? customVariation
+    : defaultVariation;
 }
 
 export function calculatePreview(rawInputs: EvaluationRequest): EvaluationPreview {
@@ -395,7 +407,11 @@ export function calculatePreview(rawInputs: EvaluationRequest): EvaluationPrevie
   const defaultVariations = buildDefaultMarketVariations(inputs.loanTermYears);
   const marketRows: MarketRow[] = defaultVariations.map((defaultMarketVariation, index) => {
     const customMarketVariation = customVariations[index];
-    const selectedMarketVariation = selectedVariation(defaultMarketVariation, customMarketVariation);
+    const selectedMarketVariation = selectedVariation(
+      inputs.scenario,
+      defaultMarketVariation,
+      customMarketVariation
+    );
     return {
       year: index + 1,
       defaultMarketVariation,
@@ -440,16 +456,10 @@ export function calculatePreview(rawInputs: EvaluationRequest): EvaluationPrevie
     const earlySettlementCost =
       inputs.earlyPaymentFeeSource === "amount"
         ? Math.min(Math.max(0, inputs.earlyPaymentFeeAmount), settlementBase)
-        : Math.min(
-            Math.max(0, inputs.earlyPaymentFeeAmount),
-            settlementBase * inputs.earlyPaymentFeePct
-          );
+        : settlementBase * Math.max(0, inputs.earlyPaymentFeePct);
     const propertyMarketPrice =
       inputs.propertyNetPurchasePrice * (1 + market.selectedMarketVariation);
-    const netTotalResale =
-      (derived.downPaymentAmount + totalPrincipal) *
-        (1 + market.selectedMarketVariation) -
-      earlySettlementCost;
+    const netTotalResale = propertyMarketPrice - settlementBase - earlySettlementCost;
     const optionsComparison = netTotalResale - rentalNetTotal - derived.purchaseCostAmount;
     const row: ComparisonRow = {
       year: market.year,

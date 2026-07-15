@@ -106,10 +106,68 @@ class _CoreValues:
     principal_loan: float
 
 
+def _paired_value(
+    base: float,
+    amount: float,
+    percentage: float,
+    source: str,
+) -> tuple[float, float]:
+    if source == "amount":
+        return amount, amount / base if base > 0 else percentage
+    return base * percentage, percentage
+
+
+def _normalize_inputs(inputs: EvaluationRequest) -> EvaluationRequest:
+    down_payment, down_payment_pct = _paired_value(
+        inputs.propertyNetPurchasePrice,
+        inputs.downPaymentAmount,
+        inputs.downPaymentPct,
+        inputs.downPaymentSource,
+    )
+    purchase_cost, purchase_cost_pct = _paired_value(
+        inputs.propertyNetPurchasePrice,
+        inputs.purchaseCostAmount,
+        inputs.purchaseCostPct,
+        inputs.purchaseCostSource,
+    )
+    rent, rent_pct = _paired_value(
+        inputs.propertyNetPurchasePrice,
+        inputs.currentRentPerYear,
+        inputs.rentYieldPct,
+        inputs.rentYieldSource,
+    )
+    initial_funds = down_payment + purchase_cost
+    savings_amount, savings_pct = _paired_value(
+        initial_funds,
+        inputs.savingsProfitAmount,
+        inputs.savingsProfitRatePct,
+        inputs.savingsProfitRateSource,
+    )
+    principal_loan = inputs.propertyNetPurchasePrice - down_payment
+    early_payment_pct = (
+        inputs.earlyPaymentFeeAmount / principal_loan
+        if inputs.earlyPaymentFeeSource == "amount" and principal_loan > 0
+        else inputs.earlyPaymentFeePct
+    )
+    return inputs.model_copy(
+        update={
+            "downPaymentAmount": down_payment,
+            "downPaymentPct": down_payment_pct,
+            "purchaseCostAmount": purchase_cost,
+            "purchaseCostPct": purchase_cost_pct,
+            "currentRentPerYear": rent,
+            "rentYieldPct": rent_pct,
+            "savingsProfitAmount": savings_amount,
+            "savingsProfitRatePct": savings_pct,
+            "earlyPaymentFeePct": early_payment_pct,
+        }
+    )
+
+
 def _core_values(inputs: EvaluationRequest) -> _CoreValues:
-    down_payment = inputs.propertyNetPurchasePrice * inputs.downPaymentPct
-    purchase_cost = inputs.propertyNetPurchasePrice * inputs.purchaseCostPct
-    rent_per_year = inputs.propertyNetPurchasePrice * inputs.rentYieldPct
+    down_payment = inputs.downPaymentAmount
+    purchase_cost = inputs.purchaseCostAmount
+    rent_per_year = inputs.currentRentPerYear
     service_charges_year = inputs.serviceChargePerSqFt * inputs.areaSqFt
     return _CoreValues(
         down_payment=down_payment,
@@ -122,6 +180,7 @@ def _core_values(inputs: EvaluationRequest) -> _CoreValues:
 
 
 def calculate_preview(inputs: EvaluationRequest) -> EvaluationPreview:
+    inputs = _normalize_inputs(inputs)
     custom_variations = normalize_custom_variations(
         inputs.customMarketVariations,
         inputs.loanTermYears,
@@ -200,13 +259,12 @@ def calculate_preview(inputs: EvaluationRequest) -> EvaluationPreview:
 
         total_cost = yearly_instalments + derived.serviceChargesYear
         settlement_base = max(0.0, derived.principalLoan - total_principal)
-        early_settlement = min(10_000.0, settlement_base * inputs.earlyPaymentFeePct)
+        if inputs.earlyPaymentFeeSource == "amount":
+            early_settlement = min(inputs.earlyPaymentFeeAmount, settlement_base)
+        else:
+            early_settlement = settlement_base * inputs.earlyPaymentFeePct
         property_price = inputs.propertyNetPurchasePrice * (1 + market.selectedMarketVariation)
-        net_total_resale = (
-            (derived.downPaymentAmount + total_principal)
-            * (1 + market.selectedMarketVariation)
-            - early_settlement
-        )
+        net_total_resale = property_price - settlement_base - early_settlement
         options_comparison = net_total_resale - rental_net_total - derived.purchaseCostAmount
 
         row = ComparisonRow(

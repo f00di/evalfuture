@@ -1,6 +1,6 @@
 # Evalfuture.
 
-Evalfuture. is a finance/accounting-style property evaluation model. It provides an interactive web preview and exports a two-sheet XLSX workbook with formulas, formatting, dynamic market rows, amortization logic, and a chart.
+Evalfuture. is a finance/accounting-style property evaluation model. It provides an interactive web preview and exports a formatted two-sheet XLSX workbook with dynamic market rows and amortization data.
 
 The downloaded workbook contains exactly two visible sheets:
 
@@ -48,6 +48,17 @@ Endpoints:
 
 API percentage fields use decimal values. For example, `20%` is sent as `0.2`.
 
+The default display currency is AED. The comparison collects customer name, email, and phone before generating results; customer notes are optional and all four fields are carried into the workbook.
+
+Early-payment fee modes are intentionally distinct:
+
+- `percent` applies the entered percentage to the outstanding settlement balance.
+- `amount` applies the entered fixed fee/cap, limited to the outstanding settlement balance.
+
+Net Total / Resale is the selected property market price less the outstanding loan settlement balance and early-payment fee. Options Comparison subtracts the cumulative rental-option net total and purchase cost from that resale amount.
+
+The savings assumption is labelled exactly **Profit rate your savings can earn per year** across the UI and workbook.
+
 ## Frontend Setup
 
 ```bash
@@ -66,7 +77,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
 
 ## Tests
 
-Backend tests cover the default calculation case, dynamic row counts, custom scenario behavior, and XLSX chart range generation.
+Backend tests cover the default calculation case, dynamic row counts, custom scenario behavior, early-payment fee modes, displayed totals, and XLSX chart range generation.
 
 ```bash
 cd backend
@@ -119,8 +130,10 @@ NEXT_PUBLIC_API_BASE_URL=https://your-backend.example.com
 ## Dynamic Workbook Behavior
 
 - Loan term controls visible market rows.
-- `loanTermYears = 10` produces market table ranges `A23:C34` and `E23:G34`.
+- `loanTermYears = 10` produces exactly 10 editable market-assumption rows.
 - `loanTermYears = 25` expands the market tables, comparison table, formulas, and chart ranges to 25 rows.
 - The selected scenario cell is placed at `H24`.
 - Comparison column `L` uses custom variation values only when scenario is `Custom` and the custom cell is not blank. Otherwise it falls back to the default variation.
 - Workbook formulas are written with cached values where practical and the workbook is set to automatic recalculation.
+
+The website chart and backend-generated XLSX chart include a display-only Year 0 baseline with 0% variation and selling price equal to the property net purchase price. Year 0 is not added to payment or amortization rows. The static browser exporter does not embed an Excel chart object; it includes the same Year 0 baseline and clearly labelled chart-ready market data instead.

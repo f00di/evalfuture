@@ -16,6 +16,7 @@ import {
   AmountPercentSource,
   AreaUnit,
   CurrencyCode,
+  buildDefaultMarketVariations,
   calculatePreview,
   currencyOptions,
   defaultRequest,
@@ -37,6 +38,9 @@ type AmountPercentValue = {
 };
 
 type FieldErrors = {
+  customerName: boolean;
+  customerEmail: boolean;
+  customerPhone: boolean;
   propertyName: boolean;
   currencyCode: boolean;
   propertyNetPurchasePrice: boolean;
@@ -209,7 +213,7 @@ export default function ComparisonCalculator() {
           Free Initial Comparison
         </p>
         <h2 className="mt-2 text-2xl font-semibold text-navy sm:text-3xl">
-          Answer the property questions first
+          Tell us about you, then the property
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slateFinance sm:text-base">
           Enter the assumptions you want the model to use. Results, charts, tables, and the Excel
@@ -225,12 +229,15 @@ export default function ComparisonCalculator() {
           updateField={updateField}
           updateLoanTerm={updateLoanTerm}
           updateAmountPercent={updateAmountPercent}
+          updateCustomVariation={updateCustomVariation}
+          resetCustomVariation={resetCustomVariation}
+          resetMarketVariations={resetMarketVariations}
         />
 
         <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm leading-6 text-slateFinance">
             <p className="font-semibold text-navy">Ready to generate your comparison?</p>
-            <p>Market variation rows will match the selected loan term and can be edited in Results.</p>
+            <p>Market variation rows match the selected loan term and are included in the results.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <button
@@ -262,9 +269,6 @@ export default function ComparisonCalculator() {
           hasMounted={hasMounted}
           isDownloading={isDownloading}
           downloadError={downloadError}
-          updateCustomVariation={updateCustomVariation}
-          resetCustomVariation={resetCustomVariation}
-          resetMarketVariations={resetMarketVariations}
           downloadWorkbook={downloadWorkbook}
         />
       )}
@@ -278,7 +282,10 @@ function AssumptionsForm({
   fieldErrors,
   updateField,
   updateLoanTerm,
-  updateAmountPercent
+  updateAmountPercent,
+  updateCustomVariation,
+  resetCustomVariation,
+  resetMarketVariations
 }: {
   form: EvaluationRequest;
   normalizedForm: EvaluationRequest;
@@ -293,6 +300,9 @@ function AssumptionsForm({
     },
     value: AmountPercentValue
   ) => void;
+  updateCustomVariation: (index: number, value: string) => void;
+  resetCustomVariation: (index: number) => void;
+  resetMarketVariations: () => void;
 }) {
   const initialFunds =
     normalizedForm.downPaymentAmount + normalizedForm.purchaseCostAmount;
@@ -301,6 +311,39 @@ function AssumptionsForm({
 
   return (
     <div className="grid min-w-0 gap-4">
+      <FieldGroup
+        title="Customer Details"
+        description="Your details are included in the on-screen summary and Excel comparison."
+      >
+        <div className="grid min-w-0 gap-3 lg:grid-cols-2">
+          <TextField
+            label="Customer name"
+            value={form.customerName}
+            invalid={fieldErrors?.customerName}
+            onChange={(value) => updateField("customerName", value)}
+          />
+          <TextField
+            label="Customer email"
+            value={form.customerEmail}
+            invalid={fieldErrors?.customerEmail}
+            inputMode="email"
+            onChange={(value) => updateField("customerEmail", value)}
+          />
+          <TextField
+            label="Customer phone"
+            value={form.customerPhone}
+            invalid={fieldErrors?.customerPhone}
+            inputMode="tel"
+            onChange={(value) => updateField("customerPhone", value)}
+          />
+          <TextAreaField
+            label="Customer notes / message (optional)"
+            value={form.customerNotes}
+            onChange={(value) => updateField("customerNotes", value)}
+          />
+        </div>
+      </FieldGroup>
+
       <FieldGroup
         title="Property Details"
         description="Core property details used by the comparison and workbook."
@@ -401,14 +444,14 @@ function AssumptionsForm({
           <div className="xl:col-span-2">
             <AmountOrPercentInput
               label="Early payment fee"
-              amountLabel="Currency cap/value"
+              amountLabel="Fixed currency fee/cap"
               amount={form.earlyPaymentFeeAmount}
               percent={form.earlyPaymentFeePct}
               source={form.earlyPaymentFeeSource}
               base={principalLoan}
               invalid={fieldErrors?.earlyPaymentFee}
               preserveAmountOnPercentChange
-              helperText="Used to estimate early settlement cost. Financing products may apply caps or lender-specific rules."
+              helperText="Percentage mode applies the entered rate to the outstanding settlement balance. Amount mode uses the entered fixed fee, capped at that balance."
               onChange={(value) =>
                 updateAmountPercent(
                   {
@@ -448,14 +491,23 @@ function AssumptionsForm({
             }
           />
           <MoneyInput
-            label="Service charges per sq. ft per year"
+            label="Service charges per sq. ft/year"
             value={form.serviceChargePerSqFt}
             invalid={fieldErrors?.serviceChargePerSqFt}
             onChange={(value) => updateField("serviceChargePerSqFt", value)}
           />
+          <div className="rounded-md border border-slate-200 bg-white px-3 py-3 text-sm">
+            <p className="font-medium text-slateFinance">Service charges per year</p>
+            <p className="numeric mt-1 font-semibold text-navy">
+              {money(
+                normalizedForm.serviceChargePerSqFt * normalizedForm.areaSqFt,
+                normalizedForm.currencyCode
+              )}
+            </p>
+          </div>
           <div className="xl:col-span-2">
             <AmountOrPercentInput
-              label="Profit rate savings can earn per year"
+              label="Profit rate your savings can earn per year"
               amountLabel="First-year earnings"
               amount={form.savingsProfitAmount}
               percent={form.savingsProfitRatePct}
@@ -480,12 +532,15 @@ function AssumptionsForm({
 
       <FieldGroup
         title="Market Assumptions"
-        description="The default market variation curve is created from the loan term and can be edited after results are generated."
+        description="Review and edit yearly market assumptions before generating the comparison."
       >
-        <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slateFinance">
-          <span className="font-semibold text-navy">{normalizedForm.loanTermYears || 0}</span>{" "}
-          market variation rows will be available in Results.
-        </div>
+        <MarketAssumptionsInput
+          form={normalizedForm}
+          updateField={updateField}
+          updateCustomVariation={updateCustomVariation}
+          resetCustomVariation={resetCustomVariation}
+          resetMarketVariations={resetMarketVariations}
+        />
       </FieldGroup>
     </div>
   );
@@ -497,9 +552,6 @@ function ResultsSection({
   hasMounted,
   isDownloading,
   downloadError,
-  updateCustomVariation,
-  resetCustomVariation,
-  resetMarketVariations,
   downloadWorkbook
 }: {
   refTarget: React.RefObject<HTMLDivElement | null>;
@@ -507,25 +559,29 @@ function ResultsSection({
   hasMounted: boolean;
   isDownloading: boolean;
   downloadError: string | null;
-  updateCustomVariation: (index: number, value: string) => void;
-  resetCustomVariation: (index: number) => void;
-  resetMarketVariations: () => void;
   downloadWorkbook: () => void;
 }) {
   const chartData = useMemo(
     () =>
-      preview.marketRows.map((row) => ({
-        year: row.year,
-        variation: row.selectedMarketVariation * 100,
-        sellingPrice: row.selectedSellingPrice
-      })),
-    [preview.marketRows]
+      [
+        {
+          year: 0,
+          variation: 0,
+          sellingPrice: preview.inputs.propertyNetPurchasePrice
+        },
+        ...preview.marketRows.map((row) => ({
+          year: row.year,
+          variation: row.selectedMarketVariation * 100,
+          sellingPrice: row.selectedSellingPrice
+        }))
+      ],
+    [preview.inputs.propertyNetPurchasePrice, preview.marketRows]
   );
 
   return (
     <section ref={refTarget} id="results" className="scroll-mt-24 border-t border-slate-200 bg-creamFinance/60">
       <div className="p-4 sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-tealFinance">
               Results
@@ -538,19 +594,6 @@ function ResultsSection({
               comparison.
             </p>
           </div>
-          <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={downloadWorkbook}
-              disabled={isDownloading}
-              className="rounded-md bg-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#102A43] disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              {isDownloading ? "Preparing XLSX..." : "Download Excel Comparison"}
-            </button>
-            <p className="text-xs leading-5 text-slateFinance">
-              The GitHub Pages version creates the workbook in your browser.
-            </p>
-          </div>
         </div>
 
         {downloadError && (
@@ -559,22 +602,12 @@ function ResultsSection({
           </div>
         )}
 
-        <div className="mt-6">
+        <div className="mt-6 grid gap-5">
+          <CustomerSummary preview={preview} />
           <KpiCards preview={preview} />
         </div>
 
-        <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-          <CalculatorBlock
-            title="Market Variation"
-            detail={`${preview.marketRows.length} rows generated from the selected loan term.`}
-          >
-            <MarketVariationTable
-              preview={preview}
-              updateCustomVariation={updateCustomVariation}
-              resetCustomVariation={resetCustomVariation}
-              resetMarketVariations={resetMarketVariations}
-            />
-          </CalculatorBlock>
+        <div className="mt-6 grid min-w-0 gap-5">
           <CalculatorBlock title="Property Market Price Fluctuations">
             <MarketChart
               chartData={chartData}
@@ -585,6 +618,21 @@ function ResultsSection({
         </div>
 
         <DetailedTables preview={preview} />
+
+        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5 text-center">
+          <h3 className="text-lg font-semibold text-navy">Download your full comparison</h3>
+          <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-slateFinance">
+            The GitHub Pages version creates a formatted two-sheet workbook in your browser.
+          </p>
+          <button
+            type="button"
+            onClick={downloadWorkbook}
+            disabled={isDownloading}
+            className="mt-4 rounded-md bg-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#102A43] disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {isDownloading ? "Preparing XLSX..." : "Download Excel Comparison"}
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -614,11 +662,13 @@ function TextField({
   label,
   value,
   invalid,
+  inputMode,
   onChange
 }: {
   label: string;
   value: string;
   invalid?: boolean;
+  inputMode?: "email" | "tel" | "text";
   onChange: (value: string) => void;
 }) {
   return (
@@ -626,8 +676,31 @@ function TextField({
       <span className="font-medium leading-5 text-slateFinance">{label}</span>
       <input
         value={value}
+        inputMode={inputMode}
         onChange={(event) => onChange(event.target.value)}
         className={`${inputClass} ${invalid ? invalidInputClass : ""}`}
+      />
+    </label>
+  );
+}
+
+function TextAreaField({
+  label,
+  value,
+  onChange
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid min-w-0 gap-1.5 text-sm lg:col-span-2">
+      <span className="font-medium leading-5 text-slateFinance">{label}</span>
+      <textarea
+        value={value}
+        rows={3}
+        onChange={(event) => onChange(event.target.value)}
+        className={`${inputClass} h-auto min-h-24 py-3`}
       />
     </label>
   );
@@ -971,6 +1044,34 @@ function NumericTextInput({
   );
 }
 
+function CustomerSummary({ preview }: { preview: EvaluationPreview }) {
+  const { customerName, customerEmail, customerPhone, customerNotes } = preview.inputs;
+  return (
+    <CalculatorBlock title="Customer Summary">
+      <dl className="grid gap-3 text-sm sm:grid-cols-3">
+        <div>
+          <dt className="font-medium text-slateFinance">Name</dt>
+          <dd className="mt-1 font-semibold text-navy">{customerName}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-slateFinance">Email</dt>
+          <dd className="mt-1 break-all font-semibold text-navy">{customerEmail}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-slateFinance">Phone</dt>
+          <dd className="mt-1 font-semibold text-navy">{customerPhone}</dd>
+        </div>
+        {customerNotes && (
+          <div className="sm:col-span-3">
+            <dt className="font-medium text-slateFinance">Notes / message</dt>
+            <dd className="mt-1 whitespace-pre-wrap text-navy">{customerNotes}</dd>
+          </div>
+        )}
+      </dl>
+    </CalculatorBlock>
+  );
+}
+
 function KpiCards({ preview }: { preview: EvaluationPreview }) {
   const finalRow = preview.comparisonRows[preview.comparisonRows.length - 1];
   const currencyCode = preview.inputs.currencyCode;
@@ -1011,6 +1112,11 @@ function KpiCards({ preview }: { preview: EvaluationPreview }) {
       detail: money(preview.derived.purchaseCostAmount, currencyCode)
     },
     {
+      label: "Service Charges/year",
+      value: compactMoney(preview.derived.serviceChargesYear, currencyCode),
+      detail: money(preview.derived.serviceChargesYear, currencyCode)
+    },
+    {
       label: "Net rental/year",
       value: compactMoney(preview.derived.netRentalYear, currencyCode),
       detail: money(preview.derived.netRentalYear, currencyCode)
@@ -1043,52 +1149,76 @@ function KpiCards({ preview }: { preview: EvaluationPreview }) {
   );
 }
 
-function MarketVariationTable({
-  preview,
+function MarketAssumptionsInput({
+  form,
+  updateField,
   updateCustomVariation,
   resetCustomVariation,
   resetMarketVariations
 }: {
-  preview: EvaluationPreview;
+  form: EvaluationRequest;
+  updateField: <K extends keyof EvaluationRequest>(key: K, value: EvaluationRequest[K]) => void;
   updateCustomVariation: (index: number, value: string) => void;
   resetCustomVariation: (index: number) => void;
   resetMarketVariations: () => void;
 }) {
-  const currencyCode = preview.inputs.currencyCode;
+  const defaultVariations = buildDefaultMarketVariations(form.loanTermYears);
 
   return (
     <div className="min-w-0">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm leading-6 text-slateFinance">
-          Default values appear first. Edited rows override the default for that year.
+          Select Default, or choose Custom and enter overrides for individual years.
         </p>
-        <button
-          type="button"
-          onClick={resetMarketVariations}
-          className="w-fit rounded-md border border-tealFinance bg-white px-3 py-2 text-sm font-semibold text-tealFinance transition hover:bg-tealFinance hover:text-white"
-        >
-          Reset to Default
-        </button>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="grid gap-1 text-xs font-medium text-slateFinance">
+            Scenario
+            <select
+              value={form.scenario}
+              onChange={(event) => updateField("scenario", event.target.value as EvaluationRequest["scenario"])}
+              className={`${inputClass} h-10 min-w-32 bg-inputAmber/70`}
+            >
+              <option value="Default">Default</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={resetMarketVariations}
+            className="h-10 w-fit rounded-md border border-tealFinance bg-white px-3 text-sm font-semibold text-tealFinance transition hover:bg-tealFinance hover:text-white"
+          >
+            Clear Custom Values
+          </button>
+        </div>
       </div>
       <div className="scrollbar-soft overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="w-full min-w-[520px] text-sm">
-          <thead className="bg-navy text-white">
+        <table className="w-full min-w-[760px] text-xs sm:text-sm">
+          <thead className="sticky top-0 z-10 bg-navy text-white">
             <tr>
               <Th>Year</Th>
-              <Th>Variation</Th>
-              <Th>Selling Price</Th>
+              <Th>Default Variation</Th>
+              <Th>Default Selling Price</Th>
+              <Th>Custom Variation</Th>
+              <Th>Selected Selling Price</Th>
             </tr>
           </thead>
           <tbody>
-            {preview.marketRows.map((row, index) => {
-              const isCustom = row.customMarketVariation !== null;
+            {defaultVariations.map((defaultVariation, index) => {
+              const customVariation = form.customMarketVariations[index];
+              const isCustom = customVariation !== null;
+              const selectedVariation =
+                form.scenario === "Custom" && customVariation !== null
+                  ? customVariation
+                  : defaultVariation;
               return (
-                <tr key={row.year} className="border-t border-slate-200">
-                  <Td>{row.year}</Td>
-                  <td className="px-3 py-2 align-top">
+                <tr key={index + 1} className="border-t border-slate-200">
+                  <Td>{index + 1}</Td>
+                  <Td>{percent(defaultVariation)}</Td>
+                  <Td>{money(form.propertyNetPurchasePrice * (1 + defaultVariation), form.currencyCode)}</Td>
+                  <td className="px-2 py-2 align-top">
                     <div className="grid min-w-[150px] gap-1">
                       <InputWithSuffix
-                        value={row.selectedMarketVariation * 100}
+                        value={customVariation === null ? Number.NaN : customVariation * 100}
                         suffix="%"
                         allowNegative
                         onChange={(value) =>
@@ -1116,7 +1246,7 @@ function MarketVariationTable({
                       </div>
                     </div>
                   </td>
-                  <Td>{money(row.selectedSellingPrice, currencyCode)}</Td>
+                  <Td>{money(form.propertyNetPurchasePrice * (1 + selectedVariation), form.currencyCode)}</Td>
                 </tr>
               );
             })}
@@ -1221,11 +1351,11 @@ function ComparisonTable({ preview }: { preview: EvaluationPreview }) {
           {preview.comparisonRows.length} rows
         </span>
       </div>
-      <div className="scrollbar-soft overflow-x-auto">
-        <table className="min-w-[1280px] text-sm">
-          <thead>
+      <div className="scrollbar-soft max-w-full overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-max min-w-[1800px] text-xs">
+          <thead className="sticky top-0 z-20">
             <tr className="bg-panelBlue text-center text-navy">
-              <Th>Year</Th>
+              <Th className="sticky left-0 z-30 bg-panelBlue">Year</Th>
               <Th colSpan={4}>Rental Option</Th>
               <Th colSpan={9}>Buying Option</Th>
               <Th>Options Comparison</Th>
@@ -1247,15 +1377,15 @@ function ComparisonTable({ preview }: { preview: EvaluationPreview }) {
                 "Market Price",
                 "Net Total / Resale",
                 "Comparison"
-              ].map((header) => (
-                <Th key={header}>{header}</Th>
+              ].map((header, index) => (
+                <Th key={header} className={index === 0 ? "sticky left-0 z-30 bg-navy" : ""}>{header}</Th>
               ))}
             </tr>
           </thead>
           <tbody>
             {preview.comparisonRows.map((row) => (
               <tr key={row.year} className="border-t border-slate-200">
-                <Td>{row.year}</Td>
+                <Td className="sticky left-0 z-10 bg-white font-semibold text-navy">{row.year}</Td>
                 <Td>{money(row.rent, currencyCode)}</Td>
                 <Td>{money(row.fundsAvailable, currencyCode)}</Td>
                 <Td>{money(row.earningOnAvailableFunds, currencyCode)}</Td>
@@ -1275,7 +1405,7 @@ function ComparisonTable({ preview }: { preview: EvaluationPreview }) {
               </tr>
             ))}
             <tr className="border-t border-goldFinance bg-inputAmber font-semibold">
-              <Td>Total</Td>
+              <Td className="sticky left-0 z-10 bg-inputAmber text-left text-navy">Total</Td>
               <Td>-</Td>
               <Td>-</Td>
               <Td>-</Td>
@@ -1289,10 +1419,16 @@ function ComparisonTable({ preview }: { preview: EvaluationPreview }) {
               <Td>-</Td>
               <Td>-</Td>
               <Td>-</Td>
-              <Td>{money(preview.finalOptionsComparison, currencyCode)}</Td>
+              <Td>-</Td>
             </tr>
           </tbody>
         </table>
+      </div>
+      <div className="mt-3 rounded-md border border-tealFinance/20 bg-panelBlue px-3 py-2 text-sm text-navy">
+        <span className="font-semibold">Final result (Year {preview.comparisonRows.at(-1)?.year}):</span>{" "}
+        <span className={preview.finalOptionsComparison < 0 ? "text-riskRed" : "text-positiveGreen"}>
+          {money(preview.finalOptionsComparison, currencyCode)}
+        </span>
       </div>
     </div>
   );
@@ -1314,9 +1450,9 @@ function AmortizationSummary({ preview }: { preview: EvaluationPreview }) {
           {preview.amortizationSummaryRows.length} years
         </span>
       </div>
-      <div className="scrollbar-soft overflow-x-auto">
-        <table className="min-w-[920px] text-sm">
-          <thead className="bg-navy text-white">
+      <div className="scrollbar-soft max-w-full overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-max min-w-[1080px] text-xs">
+          <thead className="sticky top-0 z-20 bg-navy text-white">
             <tr>
               {[
                 "Year",
@@ -1335,7 +1471,7 @@ function AmortizationSummary({ preview }: { preview: EvaluationPreview }) {
           <tbody>
             {preview.amortizationSummaryRows.map((row) => (
               <tr key={row.year} className="border-t border-slate-200">
-                <Td>{row.year}</Td>
+                <Td className="sticky left-0 z-10 bg-white font-semibold text-navy">{row.year}</Td>
                 <Td>{money(row.interest, currencyCode)}</Td>
                 <Td>{money(row.principal, currencyCode)}</Td>
                 <Td>{money(row.endingBalance, currencyCode)}</Td>
@@ -1385,11 +1521,11 @@ function ValidationSummary({ errors }: { errors: string[] }) {
   );
 }
 
-function Th({ children, colSpan }: { children: ReactNode; colSpan?: number }) {
+function Th({ children, colSpan, className = "" }: { children: ReactNode; colSpan?: number; className?: string }) {
   return (
     <th
       colSpan={colSpan}
-      className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase"
+      className={`whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase ${className}`}
     >
       {children}
     </th>
@@ -1428,19 +1564,12 @@ function calculatePercent(amount: number, base: number): number {
 }
 
 function compactMoney(value: number, currencyCode: CurrencyCode): string {
-  const absoluteValue = Math.abs(value);
-  const prefix = value < 0 ? `${currencyCode} -` : `${currencyCode} `;
-
-  if (absoluteValue >= 1_000_000_000) {
-    return `${prefix}${(absoluteValue / 1_000_000_000).toFixed(2)}B`;
-  }
-  if (absoluteValue >= 1_000_000) {
-    return `${prefix}${(absoluteValue / 1_000_000).toFixed(2)}M`;
-  }
-  if (absoluteValue >= 100_000) {
-    return `${prefix}${(absoluteValue / 1_000).toFixed(1)}K`;
-  }
-  return `${prefix}${numberValue(absoluteValue)}`;
+  const formatted = new Intl.NumberFormat("en", {
+    notation: Math.abs(value) >= 100_000 ? "compact" : "standard",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: Math.abs(value) >= 100_000 ? 1 : 0
+  }).format(value);
+  return `${currencyCode} ${formatted}`;
 }
 
 function validNonNegative(value: number): boolean {
@@ -1459,7 +1588,11 @@ function validPair(amount: number, percentage: number, source: AmountPercentSour
 }
 
 function getFieldErrors(form: EvaluationRequest): FieldErrors {
+  const phoneDigits = form.customerPhone.replace(/\D/g, "");
   return {
+    customerName: !form.customerName.trim(),
+    customerEmail: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.customerEmail.trim()),
+    customerPhone: phoneDigits.length < 7 || phoneDigits.length > 15,
     propertyName: !form.propertyName.trim(),
     currencyCode: !currencyOptions.some((option) => option.code === form.currencyCode),
     propertyNetPurchasePrice: !validPositive(form.propertyNetPurchasePrice),
@@ -1493,6 +1626,15 @@ function validateForm(form: EvaluationRequest): string[] {
   const errors: string[] = [];
   const fields = getFieldErrors(form);
 
+  if (fields.customerName) {
+    errors.push("Customer name is required.");
+  }
+  if (fields.customerEmail) {
+    errors.push("Customer email must be a valid email address.");
+  }
+  if (fields.customerPhone) {
+    errors.push("Customer phone must contain 7 to 15 digits.");
+  }
   if (fields.propertyName) {
     errors.push("Property name / description is required.");
   }
@@ -1521,7 +1663,7 @@ function validateForm(form: EvaluationRequest): string[] {
     errors.push("Mortgage rate must be zero or positive.");
   }
   if (fields.earlyPaymentFee) {
-    errors.push("Early payment fee requires a valid currency cap/value or percentage.");
+    errors.push("Early payment fee requires a valid fixed currency fee/cap or percentage.");
   }
   if (fields.rentYield) {
     errors.push("Current rent requires a valid annual currency value or yield percentage.");
@@ -1530,7 +1672,7 @@ function validateForm(form: EvaluationRequest): string[] {
     errors.push("Service charges must be zero or positive.");
   }
   if (fields.savingsProfitRate) {
-    errors.push("Profit rate savings can earn per year requires a valid currency value or percentage.");
+    errors.push("Profit rate your savings can earn per year requires a valid currency value or percentage.");
   }
   if (form.customMarketVariations.length !== form.loanTermYears) {
     errors.push("Market variation rows must match the selected loan term.");
