@@ -1,9 +1,59 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
+from pydantic import ValidationError
 
 from app.calculations import calculate_preview
 from app.schemas import EvaluationRequest
+
+
+SHARED_VECTORS = json.loads(
+    (
+        Path(__file__).resolve().parents[2]
+        / "shared"
+        / "calculation-vectors.json"
+    ).read_text()
+)
+
+
+@pytest.mark.parametrize(
+    ("vector"),
+    SHARED_VECTORS,
+    ids=[vector["name"] for vector in SHARED_VECTORS],
+)
+def test_shared_frontend_backend_vectors(vector: dict) -> None:
+    preview = calculate_preview(EvaluationRequest(**vector["inputs"]))
+    expected = vector["expected"]
+    first = preview.comparisonRows[0]
+    final = preview.comparisonRows[-1]
+
+    assert len(preview.marketRows) == expected["rowCount"]
+    assert len(preview.comparisonRows) == expected["rowCount"]
+    assert preview.derived.downPaymentAmount == pytest.approx(expected["downPaymentAmount"])
+    assert preview.derived.purchaseCostAmount == pytest.approx(expected["purchaseCostAmount"])
+    assert preview.derived.currentRentPerYear == pytest.approx(expected["currentRentPerYear"])
+    assert preview.derived.serviceChargesYear == pytest.approx(expected["serviceChargesYear"])
+    assert preview.derived.principalLoan == pytest.approx(expected["principalLoan"])
+    assert preview.derived.monthlyBankInstalment == pytest.approx(
+        expected["monthlyBankInstalment"]
+    )
+    assert preview.derived.totalInterest == pytest.approx(expected["totalInterest"])
+    assert preview.marketRows[0].selectedMarketVariation == pytest.approx(
+        expected["firstSelectedVariation"]
+    )
+    assert preview.marketRows[-1].selectedMarketVariation == pytest.approx(
+        expected["finalSelectedVariation"]
+    )
+    assert first.earlySettlementCost == pytest.approx(
+        expected["firstEarlySettlementCost"]
+    )
+    assert final.netTotalResale == pytest.approx(expected["finalResale"])
+    assert preview.finalOptionsComparison == pytest.approx(
+        expected["finalOptionsComparison"]
+    )
 
 
 def test_default_preview_matches_expected_values() -> None:
@@ -46,6 +96,22 @@ def test_custom_scenario_overrides_selected_market_variation() -> None:
 
     assert [row.selectedMarketVariation for row in preview.marketRows] == custom
     assert preview.comparisonRows[2].marketVariation == pytest.approx(-0.01)
+
+
+def test_blank_custom_value_falls_back_and_zero_override_is_preserved() -> None:
+    preview = calculate_preview(
+        EvaluationRequest(
+            loanTermYears=3,
+            scenario="Custom",
+            customMarketVariations=[None, -0.05, 0],
+        )
+    )
+
+    assert [row.selectedMarketVariation for row in preview.marketRows] == [
+        0,
+        -0.05,
+        0,
+    ]
 
 
 def test_custom_variation_length_must_match_loan_term() -> None:
@@ -108,3 +174,19 @@ def test_totals_and_final_values_match_displayed_rows() -> None:
         assert row.optionsComparison == pytest.approx(
             row.netTotalResale - row.rentalNetTotal - preview.derived.purchaseCostAmount
         )
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"propertyNetPurchasePrice": float("nan")},
+        {"currentRentPerYear": float("inf")},
+        {"purchaseCostSource": "amount", "purchaseCostAmount": -1},
+        {"propertyNetPurchasePrice": 1_000_000_000_001},
+        {"loanTermYears": 0},
+        {"mortgageRatePct": 1.01},
+    ],
+)
+def test_invalid_numerical_inputs_are_rejected(overrides: dict) -> None:
+    with pytest.raises(ValidationError):
+        EvaluationRequest(**overrides)

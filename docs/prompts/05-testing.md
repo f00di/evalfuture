@@ -20,11 +20,13 @@ Requirements:
 - Run available checks:
   npm run typecheck
   npm run build
-  npm run lint if configured
-  npm test if configured
+  npm run lint
+  npm test
+  npm run verify:export after a successful build
   backend pytest if dependencies are available
-- If a test runner is not configured, say so clearly.
-- Add focused tests only if the repo setup supports it without unnecessary dependencies.
+- Report that the configured lint script is TypeScript-based, not ESLint.
+- Extend the shared calculation vectors when formula behavior changes.
+- Add focused tests without unnecessary dependencies.
 - Prioritize dynamic loan-term rows, Default/Custom scenario logic, calculation consistency, XLSX export, and GitHub Pages static export.
 - Preserve /evalfuture/ compatibility.
 

@@ -1,0 +1,99 @@
+[
+  {
+    "name": "default",
+    "inputs": {},
+    "expected": {
+      "rowCount": 10,
+      "downPaymentAmount": 300000,
+      "purchaseCostAmount": 75000,
+      "currentRentPerYear": 112500,
+      "serviceChargesYear": 15600,
+      "principalLoan": 1200000,
+      "monthlyBankInstalment": 12145.657557414861,
+      "totalInterest": 257478.90688978345,
+      "firstSelectedVariation": 0,
+      "finalSelectedVariation": -0.16,
+      "firstEarlySettlementCost": 10986.521093110217,
+      "finalResale": 1260000,
+      "finalOptionsComparison": 1124421.6058035016
+    }
+  },
+  {
+    "name": "zero mortgage rate",
+    "inputs": {
+      "mortgageRatePct": 0
+    },
+    "expected": {
+      "rowCount": 10,
+      "downPaymentAmount": 300000,
+      "purchaseCostAmount": 75000,
+      "currentRentPerYear": 112500,
+      "serviceChargesYear": 15600,
+      "principalLoan": 1200000,
+      "monthlyBankInstalment": 10000,
+      "totalInterest": 0,
+      "firstSelectedVariation": 0,
+      "finalSelectedVariation": -0.16,
+      "firstEarlySettlementCost": 10800,
+      "finalResale": 1260000,
+      "finalOptionsComparison": 1138617.1444422659
+    }
+  },
+  {
+    "name": "maximum term",
+    "inputs": {
+      "loanTermYears": 40
+    },
+    "expected": {
+      "rowCount": 40,
+      "downPaymentAmount": 300000,
+      "purchaseCostAmount": 75000,
+      "currentRentPerYear": 112500,
+      "serviceChargesYear": 15600,
+      "principalLoan": 1200000,
+      "monthlyBankInstalment": 4829.0441350104265,
+      "totalInterest": 1117941.1848050049,
+      "firstSelectedVariation": 0,
+      "finalSelectedVariation": -0.7600000000000003,
+      "firstEarlySettlementCost": 11864.514703798748,
+      "finalResale": 359999.9999999995,
+      "finalOptionsComparison": 212530.55952205835
+    }
+  },
+  {
+    "name": "fixed amount modes with square metre conversion and custom fallback",
+    "inputs": {
+      "propertyNetPurchasePrice": 825000,
+      "areaValue": 100,
+      "areaUnit": "sq. m",
+      "downPaymentSource": "amount",
+      "downPaymentAmount": 165000,
+      "purchaseCostSource": "amount",
+      "purchaseCostAmount": 33000,
+      "rentYieldSource": "amount",
+      "currentRentPerYear": 62000,
+      "savingsProfitRateSource": "amount",
+      "savingsProfitAmount": 9900,
+      "earlyPaymentFeeSource": "amount",
+      "earlyPaymentFeeAmount": 5000,
+      "loanTermYears": 3,
+      "scenario": "Custom",
+      "customMarketVariations": [null, -0.05, 0]
+    },
+    "expected": {
+      "rowCount": 3,
+      "downPaymentAmount": 165000,
+      "purchaseCostAmount": 33000,
+      "currentRentPerYear": 62000,
+      "serviceChargesYear": 13993.069999999998,
+      "principalLoan": 660000,
+      "monthlyBankInstalment": 19706.426492167247,
+      "totalInterest": 49431.35371802095,
+      "firstSelectedVariation": 0,
+      "finalSelectedVariation": 0,
+      "firstEarlySettlementCost": 5000,
+      "finalResale": 825000,
+      "finalOptionsComparison": 761604.3057396343
+    }
+  }
+]

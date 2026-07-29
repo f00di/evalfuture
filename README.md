@@ -1,139 +1,192 @@
 # Evalfuture.
 
-Evalfuture. is a finance/accounting-style property evaluation model. It provides an interactive web preview and exports a formatted two-sheet XLSX workbook with dynamic market rows and amortization data.
+Evalfuture. is a static-first property evaluation and rent-versus-buy comparison
+website. It combines a professional consulting site with an interactive model for
+purchase costs, financing, rent, service charges, savings earnings, market
+movement, early settlement, resale, and amortization.
 
-The downloaded workbook contains exactly two visible sheets:
+Results are based on user-entered assumptions and are informational. They are not
+formal financial, investment, mortgage, tax, or legal advice.
 
-- `Evalfuture`
-- `amort`
+## Architecture
 
-## Stack
+- Frontend: Next.js App Router, React, TypeScript, Tailwind CSS, Recharts
+- Browser calculations: `frontend/src/lib/model.ts`
+- Browser XLSX fallback: `frontend/src/lib/workbook.ts`
+- Optional API: FastAPI, Pydantic, HTTPX, XlsxWriter
+- Optional lead services: Supabase storage and Resend notification
+- Hosting: GitHub Pages frontend and a separately deployed API, such as Render
 
-- Frontend: Next.js, TypeScript, Tailwind CSS, Recharts
-- Backend/API: FastAPI, Pydantic
-- XLSX generation: Python `xlsxwriter`
+The static frontend remains useful without the API: calculations, results,
+charts, and the two-sheet browser workbook all run locally in the browser. When
+`NEXT_PUBLIC_API_BASE_URL` is configured, the frontend first requests the richer
+backend export and falls back to the browser workbook if that request fails.
 
-## Project Structure
+Data flows through:
+
+1. The questionnaire validates and normalizes user input.
+2. The browser model calculates results and chart data.
+3. The results dashboard renders KPIs, summaries, chart, and table alternatives.
+4. Workbook download tries the optional backend, then safely falls back locally.
+5. The backend independently validates the same request before preview or export.
+6. Shared JSON vectors are exercised by both TypeScript and Python tests to
+   detect calculation drift.
+
+## Repository Layout
 
 ```text
 backend/
-  app/
-    calculations.py      # Preview calculation engine
-    main.py              # FastAPI app
-    schemas.py           # Pydantic request/response models
-    xlsx_generator.py    # Two-sheet workbook generation
-  tests/
+  app/                 FastAPI routes, validation, calculations, lead delivery
+  supabase/leads.sql   Optional server-only lead-storage schema
+  tests/               API, calculation, rate-limit, and workbook tests
 frontend/
-  src/app/page.tsx       # Dashboard UI
-  src/lib/model.ts       # Frontend types and formatting helpers
+  scripts/             Static-export verification
+  src/app/             Public routes and metadata
+  src/components/      Calculator, dashboard, site, and local UI components
+  src/lib/             Browser model, site data, and workbook generator
+shared/
+  calculation-vectors.json
+docs/
 ```
 
-## Backend Setup
+## Calculation and Workbook Rules
+
+- AED is the default display currency. Changing currency changes labels and
+  formatting only; it does not perform exchange-rate conversion.
+- A 10-year term creates exactly 10 yearly model rows; a 25-year term creates 25.
+- Custom scenario blanks fall back to the same-year Default value.
+- Loan-term changes preserve existing Custom values for retained years, truncate
+  removed years, and add blank fallback values for newly added years.
+- Early-payment `percent` applies to the outstanding settlement balance.
+- Early-payment `amount` is a fixed fee/cap limited to that balance.
+- The savings assumption is labelled exactly **Profit rate your savings can earn
+  per year** in the UI and workbook.
+- Year 0 is chart/display-only: variation is 0%, selling price is the property net
+  purchase price, and no Year 0 payment or amortization row is created.
+- Both exporters create exactly two visible sheets: `Evalfuture` and `amort`.
+- The browser workbook includes chart-ready data; the backend workbook can include
+  richer formatting and an embedded chart.
+
+## Local Development
+
+Frontend:
+
+```bash
+cd frontend
+npm ci
+npm run dev -- --port 3000
+```
+
+Backend:
 
 ```bash
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-The API will be available at `http://localhost:8000`.
+To connect the two locally, copy the example variables without committing the
+result:
 
-Endpoints:
+```bash
+cp frontend/.env.example frontend/.env.local
+cp backend/.env.example backend/.env
+```
 
-- `POST /api/preview` returns calculated JSON for the website preview.
-- `POST /api/export` returns the downloadable `.xlsx` workbook.
-- `GET /api/health` returns a basic health check.
+Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`. This variable is public by
+design and must contain only the API origin—never a key or secret.
 
-API percentage fields use decimal values. For example, `20%` is sent as `0.2`.
+## API
 
-The default display currency is AED. The comparison collects customer name, email, and phone before generating results; customer notes are optional and all four fields are carried into the workbook.
+- `GET /api/health` — health and lead-integration configuration status
+- `POST /api/preview` — validated calculated JSON
+- `POST /api/export` — richer two-sheet XLSX workbook
+- `POST /api/leads` — validated, rate-limited inquiry submission
 
-Early-payment fee modes are intentionally distinct:
+API percentage values are decimals: `20%` is sent as `0.2`.
 
-- `percent` applies the entered percentage to the outstanding settlement balance.
-- `amount` applies the entered fixed fee/cap, limited to the outstanding settlement balance.
+The lead endpoint normalizes input, limits lengths, validates email/phone,
+rejects unexpected fields, uses a honeypot, applies a five-attempt-per-15-minute
+in-memory limit per client, and returns non-sensitive errors. It sends only the
+fields shown in the contact form; full calculator assumptions are not submitted.
+If neither optional delivery service is configured, it returns `503` and the
+frontend explicitly says that online inquiries are unavailable.
 
-Net Total / Resale is the selected property market price less the outstanding loan settlement balance and early-payment fee. Options Comparison subtracts the cumulative rental-option net total and purchase cost from that resale amount.
+Environment variables:
 
-The savings assumption is labelled exactly **Profit rate your savings can earn per year** across the UI and workbook.
+| Scope | Variable | Purpose |
+| --- | --- | --- |
+| Browser-safe | `NEXT_PUBLIC_API_BASE_URL` | Optional FastAPI origin |
+| Server-only | `ALLOWED_FRONTEND_ORIGINS` | Exact comma-separated CORS origins |
+| Server-only | `TRUST_PROXY_HEADERS` | Trust forwarded IP only behind a trusted proxy |
+| Server-only | `SUPABASE_URL` | Optional Supabase project URL |
+| Server-only | `SUPABASE_SERVICE_ROLE_KEY` | Optional lead insert credential |
+| Server-only | `RESEND_API_KEY` | Optional email credential |
+| Server-only | `RESEND_FROM_EMAIL` | Verified sending identity |
+| Server-only | `NOTIFICATION_EMAIL` | Inquiry notification destination |
 
-## Frontend Setup
+Never expose the Supabase service-role or Resend keys through a
+`NEXT_PUBLIC_` variable. See [deployment and operations](docs/IMPLEMENTATION.md)
+for setup, RLS, monitoring, recovery, and rollback guidance.
+
+## Verification
+
+Frontend:
 
 ```bash
 cd frontend
-npm install
-npm run dev
+npm ci
+npm run typecheck
+npm test
+npm run lint
+npm run build
+npm run verify:export
 ```
 
-The app will be available at `http://localhost:3000`.
+`npm run lint` currently runs `tsc --noEmit`; no ESLint configuration is
+present. Vitest covers pure model behavior, validation-sensitive scenarios, the
+Year 0 chart baseline, and the browser workbook ZIP/sheet structure.
 
-If the backend runs on a different host or port:
-
-```bash
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
-```
-
-## Tests
-
-Backend tests cover the default calculation case, dynamic row counts, custom scenario behavior, early-payment fee modes, displayed totals, and XLSX chart range generation.
+Backend:
 
 ```bash
 cd backend
-source .venv/bin/activate
-pytest
+python3 -m pytest
 ```
 
-Frontend type checking:
+The Python suite covers calculations, shared vectors, invalid inputs, API lead
+behavior, rate limiting, and workbook structure/formulas.
 
-```bash
-cd frontend
-npm run typecheck
+## GitHub Pages
+
+The public frontend is exported below `/evalfuture/`. The required settings remain
+in `frontend/next.config.ts`:
+
+```ts
+output: "export"
+trailingSlash: true
+basePath: "/evalfuture"
+assetPrefix: "/evalfuture/"
+images: { unoptimized: true }
 ```
 
-## GitHub
+`.github/workflows/deploy.yml` builds inside `frontend`, adds
+`frontend/out/.nojekyll`, uploads only `frontend/out`, and deploys it on pushes to
+`main`. Trailing-slash route output supports direct navigation on GitHub Pages.
 
-This repo includes GitHub Actions CI at `.github/workflows/ci.yml`.
+The API cannot run on GitHub Pages. Deploy it separately only when backend export
+or inquiry delivery is required, then rebuild the frontend with the public API
+base URL. No production secret is required for ordinary pull-request CI.
 
-On every push to `main` and every pull request, GitHub runs:
+## Known Limitations
 
-- Backend dependency install
-- Backend unit and XLSX integration tests
-- Frontend dependency install with `npm ci`
-- Frontend dependency audit
-- Frontend TypeScript check
-- Frontend production build
-
-### Run in GitHub Codespaces
-
-The repo includes a `.devcontainer/devcontainer.json` for GitHub Codespaces.
-
-1. Open the repository on GitHub.
-2. Choose **Code** > **Codespaces** > **Create codespace on main**.
-3. Wait for dependency installation to finish.
-4. In VS Code, run these tasks:
-   - `Evalfuture: backend API`
-   - `Evalfuture: frontend`
-5. Open the forwarded frontend port `3000`.
-
-The backend runs on port `8000`, and the frontend expects it at `http://localhost:8000` by default.
-
-### GitHub Pages Note
-
-GitHub Pages can host static frontend files, but it cannot run the FastAPI backend or Python `xlsxwriter` export service. The full app needs a running backend. For a public hosted version, deploy the backend to a Python-capable host and set the frontend environment variable:
-
-```bash
-NEXT_PUBLIC_API_BASE_URL=https://your-backend.example.com
-```
-
-## Dynamic Workbook Behavior
-
-- Loan term controls visible market rows.
-- `loanTermYears = 10` produces exactly 10 editable market-assumption rows.
-- `loanTermYears = 25` expands the market tables, comparison table, formulas, and chart ranges to 25 rows.
-- The selected scenario cell is placed at `H24`.
-- Comparison column `L` uses custom variation values only when scenario is `Custom` and the custom cell is not blank. Otherwise it falls back to the default variation.
-- Workbook formulas are written with cached values where practical and the workbook is set to automatic recalculation.
-
-The website chart and backend-generated XLSX chart include a display-only Year 0 baseline with 0% variation and selling price equal to the property net purchase price. Year 0 is not added to payment or amortization rows. The static browser exporter does not embed an Excel chart object; it includes the same Year 0 baseline and clearly labelled chart-ready market data instead.
+- Browser-generated workbooks do not embed an Excel chart object.
+- The in-memory rate limiter is per API instance; use a shared store or
+  edge-provider limit before horizontally scaling.
+- Supabase, Resend, Render, DNS, monitoring, backups, and real contact details
+  require external configuration and credentials.
+- Phone `xxxx` and email `xxxxxx` are intentional placeholders and must not be
+  replaced without approved details.
+- No live currency conversion is provided.

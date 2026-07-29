@@ -39,6 +39,7 @@ Next.js is statically exported from `frontend/out` and must preserve:
 
 ```ts
 output: "export"
+trailingSlash: true
 basePath: "/evalfuture"
 assetPrefix: "/evalfuture/"
 images: { unoptimized: true }
@@ -55,8 +56,10 @@ cd frontend
 npm ci
 npm run dev -- --port 3000
 npm run typecheck
+npm test
 npm run build
 npm run lint
+npm run verify:export
 ```
 
 Backend tests, if backend dependencies are installed:
@@ -67,8 +70,10 @@ python -m pytest
 ```
 
 Notes:
-- The frontend package currently has no `npm test` script.
-- `npm run lint` uses the configured package script; if the framework no longer supports it, report the failure clearly instead of claiming lint passed.
+- `npm test` runs focused Vitest model and browser-workbook tests.
+- `npm run lint` currently runs `tsc --noEmit`; no ESLint configuration is present.
+- `npm run verify:export` checks all routes, `/evalfuture/_next` assets, sitemap
+  URLs, and the Pages artifact configuration after a successful build.
 
 ## 6. Styling Rules
 
@@ -116,7 +121,25 @@ amort
 
 If a future change adds ExcelJS or a backend formula export, preserve the two-sheet workbook concept and keep formulas/calculations consistent with the preview.
 
-## 9. Deployment Rules
+Shared reference scenarios live in `shared/calculation-vectors.json` and must be
+exercised by both frontend and backend tests when calculation behavior changes.
+
+## 9. Contact and Lead Rules
+
+The static contact form may call `NEXT_PUBLIC_API_BASE_URL`, but private keys must
+remain in the separately hosted API. Preserve:
+
+- Pydantic validation and normalized, length-limited input
+- The honeypot field and rate limiting
+- A strict production CORS allowlist
+- Graceful `not configured` behavior instead of a false success
+- Optional server-only Supabase and Resend integrations
+- No local-storage persistence of personal information
+
+Keep `SUPABASE_SERVICE_ROLE_KEY` and `RESEND_API_KEY` server-only. The optional
+Supabase `leads` table deliberately grants no browser-facing policies.
+
+## 10. Deployment Rules
 
 GitHub Pages deployment should:
 - Trigger on pushes to `main`
@@ -127,7 +150,7 @@ GitHub Pages deployment should:
 
 Do not deploy the repository root. Do not replace the app with README content. `README.md` is documentation only.
 
-## 10. Common Mistakes to Avoid
+## 11. Common Mistakes to Avoid
 
 - Removing the trailing period from `Evalfuture.`
 - Serving the README or repository root instead of the frontend static export
@@ -138,9 +161,9 @@ Do not deploy the repository root. Do not replace the app with README content. `
 - Making unsupported financial, investment, mortgage, tax, or legal advice claims
 - Using contact details other than the placeholders unless the user explicitly provides real details
 - Adding dependencies without a clear reason
-- Reporting tests as passed when no test runner exists
+- Reporting tests, browser checks, or deployments as passed when they were not run
 
-## 11. Definition of Done
+## 12. Definition of Done
 
 A change is done when:
 - The homepage opens as a professional Evalfuture. business site

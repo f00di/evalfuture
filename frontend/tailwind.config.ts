@@ -6,6 +6,7 @@ const config: Config = {
     extend: {
       colors: {
         navy: "#0B1F33",
+        darkBlue: "#102A43",
         slateFinance: "#334155",
         tealFinance: "#0F766E",
         goldFinance: "#D4AF37",
@@ -16,7 +17,11 @@ const config: Config = {
         positiveGreen: "#047857"
       },
       boxShadow: {
-        panel: "0 14px 36px rgba(11, 31, 51, 0.08)"
+        panel: "var(--shadow-panel)"
+      },
+      borderRadius: {
+        control: "var(--radius-control)",
+        panel: "var(--radius-panel)"
       }
     }
   },

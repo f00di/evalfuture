@@ -39,6 +39,24 @@ def test_loan_term_10_chart_includes_year_zero_and_10_market_points() -> None:
     assert all("$Q$2:$Q$42" not in formula for formula in formulas if formula)
 
 
+def test_loan_term_25_chart_includes_year_zero_and_25_market_points() -> None:
+    workbook = generate_workbook(EvaluationRequest(loanTermYears=25))
+    chart_root = _xml_from_zip(workbook, "xl/charts/chart1.xml")
+    formulas = [node.text for node in chart_root.findall(".//chart:f", NS)]
+
+    assert "Evalfuture!$Q$2:$Q$27" in formulas
+    assert "Evalfuture!$S$2:$S$27" in formulas
+
+
+def test_chart_year_zero_is_not_added_to_amortization_rows() -> None:
+    workbook = generate_workbook(EvaluationRequest(loanTermYears=10))
+    amort_root = _xml_from_zip(workbook, "xl/worksheets/sheet2.xml")
+    formulas = [node.text or "" for node in amort_root.findall(".//main:f", NS)]
+
+    assert any(formula == "1" for formula in formulas)
+    assert all(formula != "0" for formula in formulas)
+
+
 def test_loan_term_10_has_no_visible_40_row_market_table_cells() -> None:
     workbook = generate_workbook(EvaluationRequest(loanTermYears=10))
     sheet_root = _xml_from_zip(workbook, "xl/worksheets/sheet1.xml")

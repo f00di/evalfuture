@@ -5,10 +5,17 @@ import ContactCard from "@/components/site/ContactCard";
 import ContactForm from "@/components/site/ContactForm";
 import PageShell from "@/components/site/PageShell";
 import SectionHeader from "@/components/site/SectionHeader";
+import { siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Contact | Evalfuture.",
-  description: "Contact M. Kashif Ansari for Evalfuture. property comparison and consultation."
+  description: "Contact Evalfuture. about a detailed property evaluation or consulting session.",
+  alternates: { canonical: `${siteUrl}/contact/` },
+  openGraph: {
+    title: "Contact Evalfuture.",
+    description: "Ask about a detailed property evaluation or consulting session.",
+    url: `${siteUrl}/contact/`
+  }
 };
 
 export default function ContactPage() {
@@ -22,7 +29,7 @@ export default function ContactPage() {
             level="h1"
             eyebrow="Contact"
             title="Contact Evalfuture."
-            body="Use the contact details below for detailed property evaluation or consulting session requests."
+            body="Share the minimum details needed to discuss a detailed property evaluation or consulting session."
           />
         </div>
       </section>

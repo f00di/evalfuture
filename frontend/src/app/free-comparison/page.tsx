@@ -4,10 +4,18 @@ import SectionGlow from "@/components/backgrounds/SectionGlow";
 import FreeComparisonFlow from "@/components/site/FreeComparisonFlow";
 import PageShell from "@/components/site/PageShell";
 import SectionHeader from "@/components/site/SectionHeader";
+import { siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Free Property Comparison | Evalfuture.",
-  description: "Start a free rent-vs-buy property comparison and download an Excel workbook."
+  description: "Start a free rent-vs-buy property comparison and download an Excel workbook.",
+  alternates: { canonical: `${siteUrl}/free-comparison/` },
+  openGraph: {
+    title: "Free Property Comparison | Evalfuture.",
+    description:
+      "Compare rent and purchase assumptions, review the outcome, and download an Excel workbook.",
+    url: `${siteUrl}/free-comparison/`
+  }
 };
 
 const checklist = [

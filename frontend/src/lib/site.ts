@@ -53,41 +53,74 @@ export const serviceOffers = [
     title: "Free Initial Comparison",
     body: "A quick rent-vs-buy comparison using basic property, rental, financing, service charge, and market assumptions.",
     cta: "Open Comparison Tool",
-    href: "/free-comparison"
+    href: "/free-comparison",
+    deliverables: ["On-screen comparison", "Market scenario chart", "Excel-compatible workbook"],
+    bestFor: "A first structured view before requesting a deeper review."
   },
   {
     title: "Detailed Property Evaluation",
     body: "A more detailed report based on the initial quote, with deeper year-by-year outcomes and scenario review.",
     cta: "Request Detailed Evaluation",
-    href: "/contact"
+    href: "/contact",
+    deliverables: ["Assumption review", "Year-by-year outcome context", "Scenario discussion"],
+    bestFor: "A specific property decision that needs more context than the free comparison."
   },
   {
     title: "Consulting Session",
     body: "Review assumptions and results with M. Kashif Ansari, including financing structure, mortgage assumptions, rental income, and market scenarios.",
     cta: "Request a Consultation",
-    href: "/contact"
+    href: "/contact",
+    deliverables: ["Focused discussion", "Assumption walkthrough", "Clear follow-up questions"],
+    bestFor: "Clients who want to understand how individual assumptions influence the model."
+  },
+  {
+    title: "Download Your Excel Comparison",
+    body: "Take the free comparison into an Excel-compatible two-sheet workbook for review, notes, and offline reference.",
+    cta: "Create Your Workbook",
+    href: "/free-comparison",
+    deliverables: ["Evalfuture sheet", "Amort sheet", "Chart-ready market data"],
+    bestFor: "Keeping a portable record of the assumptions and calculated comparison."
   }
 ];
 
 export const processSteps = [
   {
-    title: "Share property details",
-    body: "Enter the property price, area, rental expectation, service charge, and financing assumptions."
+    title: "Input",
+    body: "Enter client, property, purchase, rental, and financing details."
   },
   {
-    title: "Choose assumptions",
-    body: "Select the default market scenario or enter custom annual rise/drop values for the loan period."
+    title: "Assumptions",
+    body: "Choose the display currency and Default or Custom market values for the selected term."
   },
   {
-    title: "Compare outcomes",
-    body: "Review rent, buy, financing, interest, service charges, market movement, and resale outcomes."
+    title: "Calculation",
+    body: "The model calculates mortgage payments, interest, rent, service charges, savings, and settlement balances."
   },
   {
-    title: "Download Excel comparison",
-    body: "Export the comparison workbook for review outside the site."
+    title: "Comparison",
+    body: "Review year-by-year rent, financed purchase, market price, settlement, and resale outcomes."
   },
   {
-    title: "Request detailed support",
-    body: "Move from the initial comparison to a detailed property evaluation or consulting session."
+    title: "Export",
+    body: "Download the two-sheet Excel-compatible workbook directly from the browser."
+  },
+  {
+    title: "Optional consultation",
+    body: "Request a detailed evaluation or consulting session when the assumptions need more context."
+  }
+];
+
+export const reassuranceItems = [
+  {
+    title: "Your assumptions stay in the session",
+    body: "The public calculator runs in your browser and does not store financial assumptions in local storage."
+  },
+  {
+    title: "Currency is a display assumption",
+    body: "Changing currency labels the model values; it does not perform live exchange-rate conversion."
+  },
+  {
+    title: "Outcomes, not promises",
+    body: "Results depend on the values entered and are framed as comparison outcomes, not guaranteed returns."
   }
 ];

@@ -5,11 +5,18 @@ import ContactCard from "@/components/site/ContactCard";
 import CTASection from "@/components/site/CTASection";
 import PageShell from "@/components/site/PageShell";
 import SectionHeader from "@/components/site/SectionHeader";
+import { siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "About | Evalfuture.",
   description:
-    "About Evalfuture. and M. Kashif Ansari, focused on property comparison and rent-vs-buy analysis."
+    "About Evalfuture. and its structured approach to rent-vs-buy property comparison.",
+  alternates: { canonical: `${siteUrl}/about/` },
+  openGraph: {
+    title: "About Evalfuture.",
+    description: "A structured, assumptions-led approach to property comparison.",
+    url: `${siteUrl}/about/`
+  }
 };
 
 export default function AboutPage() {
@@ -44,6 +51,22 @@ export default function AboutPage() {
               requests. The initial comparison is an informational starting point and can be followed
               by a more detailed review when a property decision needs additional structure.
             </p>
+            <div className="mt-8 grid gap-5 border-y border-slate-200 py-7 sm:grid-cols-2">
+              <div>
+                <h3 className="font-semibold text-navy">What Evalfuture. does</h3>
+                <p className="mt-2 text-sm leading-6 text-slateFinance">
+                  Organizes property, financing, rental, savings, and market assumptions into a
+                  comparable year-by-year model.
+                </p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-navy">What it does not claim</h3>
+                <p className="mt-2 text-sm leading-6 text-slateFinance">
+                  It does not guarantee returns or replace financial, investment, mortgage, tax,
+                  or legal advice.
+                </p>
+              </div>
+            </div>
           </div>
           <ContactCard />
         </div>

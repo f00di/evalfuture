@@ -17,6 +17,10 @@ export const currencyOptions = [
 
 export type CurrencyCode = (typeof currencyOptions)[number]["code"];
 export const DEFAULT_CURRENCY_CODE: CurrencyCode = "AED";
+export const MAX_LOAN_TERM_YEARS = 40;
+export const MAX_MONEY_INPUT = 1_000_000_000_000;
+export const MIN_MARKET_VARIATION = -1;
+export const MAX_MARKET_VARIATION = 10;
 
 export interface EvaluationRequest {
   customerName: string;
@@ -128,6 +132,12 @@ export interface EvaluationPreview {
     bankInterest: number;
     bankPrincipal: number;
   };
+}
+
+export interface MarketChartPoint {
+  year: number;
+  variation: number;
+  sellingPrice: number;
 }
 
 export const defaultRequest: EvaluationRequest = {
@@ -367,6 +377,10 @@ function selectedVariation(
 
 export function calculatePreview(rawInputs: EvaluationRequest): EvaluationPreview {
   const inputs = normalizeEvaluationRequest(rawInputs);
+  const inputErrors = validateEvaluationInputs(inputs);
+  if (inputErrors.length > 0) {
+    throw new Error(inputErrors[0]);
+  }
   const customVariations = normalizeCustomVariations(
     inputs.customMarketVariations,
     inputs.loanTermYears
@@ -522,4 +536,84 @@ export function calculatePreview(rawInputs: EvaluationRequest): EvaluationPrevie
         ? comparisonRows[comparisonRows.length - 1].optionsComparison
         : 0
   };
+}
+
+export function buildMarketChartData(preview: EvaluationPreview): MarketChartPoint[] {
+  return [
+    {
+      year: 0,
+      variation: 0,
+      sellingPrice: preview.inputs.propertyNetPurchasePrice
+    },
+    ...preview.marketRows.map((row) => ({
+      year: row.year,
+      variation: row.selectedMarketVariation,
+      sellingPrice: row.selectedSellingPrice
+    }))
+  ];
+}
+
+export function validateEvaluationInputs(inputs: EvaluationRequest): string[] {
+  const errors: string[] = [];
+  const finite = (value: number) => Number.isFinite(value);
+  const inPercentRange = (value: number) => finite(value) && value >= 0 && value <= 1;
+  const moneyValues = [
+    inputs.propertyNetPurchasePrice,
+    inputs.downPaymentAmount,
+    inputs.purchaseCostAmount,
+    inputs.earlyPaymentFeeAmount,
+    inputs.currentRentPerYear,
+    inputs.savingsProfitAmount
+  ];
+
+  if (!finite(inputs.propertyNetPurchasePrice) || inputs.propertyNetPurchasePrice <= 0) {
+    errors.push("Property purchase price must be positive.");
+  }
+  if (moneyValues.some((value) => !finite(value) || value < 0 || value > MAX_MONEY_INPUT)) {
+    errors.push("Currency values must be finite and within the supported range.");
+  }
+  if (!finite(inputs.areaValue) || inputs.areaValue <= 0 || inputs.areaValue > 1_000_000_000) {
+    errors.push("Area must be positive and within the supported range.");
+  }
+  if (
+    !Number.isInteger(inputs.loanTermYears) ||
+    inputs.loanTermYears < 1 ||
+    inputs.loanTermYears > MAX_LOAN_TERM_YEARS
+  ) {
+    errors.push(`Loan term must be an integer from 1 to ${MAX_LOAN_TERM_YEARS}.`);
+  }
+  const percentValues = [
+    inputs.downPaymentPct,
+    inputs.purchaseCostPct,
+    inputs.mortgageRatePct,
+    inputs.earlyPaymentFeePct,
+    inputs.rentYieldPct,
+    inputs.savingsProfitRatePct
+  ];
+  if (percentValues.some((value) => !inPercentRange(value))) {
+    errors.push("Percentage assumptions must be between 0% and 100%.");
+  }
+  if (inputs.downPaymentAmount > inputs.propertyNetPurchasePrice) {
+    errors.push("Down payment cannot exceed the property purchase price.");
+  }
+  if (
+    !finite(inputs.serviceChargePerSqFt) ||
+    inputs.serviceChargePerSqFt < 0 ||
+    inputs.serviceChargePerSqFt > 1_000_000
+  ) {
+    errors.push("Service charges must be finite, non-negative, and within the supported range.");
+  }
+  if (inputs.customMarketVariations.length !== inputs.loanTermYears) {
+    errors.push("Custom market variation rows must match the loan term.");
+  }
+  if (
+    inputs.customMarketVariations.some(
+      (value) =>
+        value !== null &&
+        (!finite(value) || value < MIN_MARKET_VARIATION || value > MAX_MARKET_VARIATION)
+    )
+  ) {
+    errors.push("Custom market variations must be between -100% and 1000%.");
+  }
+  return errors;
 }

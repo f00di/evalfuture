@@ -6,7 +6,8 @@ Add a future lead-capture flow for users who want a detailed evaluation or consu
 
 ## When To Use It
 
-Use this when adding client details, purpose fields, local storage, placeholder submission, or backend/external form integration.
+Use this when changing client details, inquiry submission, or the optional
+backend delivery integrations.
 
 ## Ready-To-Paste Codex Prompt
 
@@ -25,7 +26,14 @@ Requirements:
 - Keep contact placeholders unless real values are provided:
   Phone: xxxx
   Email: xxxxxx
-- If no backend is available, store locally or add a clear "Send request" placeholder.
+- Do not store personal information in local storage.
+- Submit only through `NEXT_PUBLIC_API_BASE_URL`.
+- If the API or delivery services are unavailable, show an explicit failure or
+  not-configured message and retain the approved contact placeholders.
+- Keep private Supabase and Resend keys server-only.
+- Preserve Pydantic validation, normalization, length limits, a honeypot, rate
+  limiting, safe errors, and a strict production CORS allowlist.
+- Do not send full calculator assumptions without explicit consent.
 - Do not collect more data than needed.
 - Do not break the calculator, dynamic loan-term rows, scenario logic, chart, or XLSX download.
 - Preserve GitHub Pages static deployment under /evalfuture/.
@@ -39,4 +47,6 @@ Inspect the current frontend structure before editing. Run available checks and 
 - Lead capture is optional and does not block the calculator.
 - Form labels are clear and accessible.
 - Placeholder submission behavior is explicit.
+- Unconfigured submission never reports false success.
+- No secret appears in the static frontend.
 - Build succeeds.

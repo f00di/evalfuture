@@ -13,6 +13,8 @@ from .schemas import (
     Totals,
 )
 
+SQM_TO_SQFT = 10.7639
+
 
 def pmt(rate: float, nper: int, pv: float, fv: float = 0, payment_type: int = 0) -> float:
     """Excel-compatible PMT sign convention for fixed-rate loans."""
@@ -118,6 +120,11 @@ def _paired_value(
 
 
 def _normalize_inputs(inputs: EvaluationRequest) -> EvaluationRequest:
+    area_sq_ft = (
+        inputs.areaValue * SQM_TO_SQFT
+        if inputs.areaUnit == "sq. m"
+        else inputs.areaValue
+    )
     down_payment, down_payment_pct = _paired_value(
         inputs.propertyNetPurchasePrice,
         inputs.downPaymentAmount,
@@ -160,6 +167,7 @@ def _normalize_inputs(inputs: EvaluationRequest) -> EvaluationRequest:
             "savingsProfitAmount": savings_amount,
             "savingsProfitRatePct": savings_pct,
             "earlyPaymentFeePct": early_payment_pct,
+            "areaSqFt": area_sq_ft,
         }
     )
 

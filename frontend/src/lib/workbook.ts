@@ -99,7 +99,9 @@ function buildEvalfutureRows(preview: EvaluationPreview): CellValue[][] {
       row.year,
       row.selectedMarketVariation,
       row.selectedSellingPrice,
-      row.customMarketVariation === null ? "Default" : "Custom"
+      inputs.scenario === "Custom" && row.customMarketVariation !== null
+        ? "Custom"
+        : "Default"
     ]);
   });
 
