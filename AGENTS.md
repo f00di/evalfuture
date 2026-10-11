@@ -62,7 +62,7 @@ npm run lint
 npm run verify:export
 ```
 
-Backend tests, if backend dependencies are installed:
+Backend tests, after `python -m pip install -r requirements-dev.txt`:
 
 ```bash
 cd backend
@@ -70,8 +70,8 @@ python -m pytest
 ```
 
 Notes:
-- `npm test` runs focused Vitest model and browser-workbook tests.
-- `npm run lint` currently runs `tsc --noEmit`; no ESLint configuration is present.
+- `npm test` runs Vitest model, browser-workbook, and calculator UI (jsdom) tests.
+- `npm run lint` runs ESLint (`eslint.config.mjs`, Next core-web-vitals + TypeScript rules).
 - `npm run verify:export` checks all routes, `/evalfuture/_next` assets, sitemap
   URLs, and the Pages artifact configuration after a successful build.
 
@@ -123,6 +123,7 @@ If a future change adds ExcelJS or a backend formula export, preserve the two-sh
 
 Shared reference scenarios live in `shared/calculation-vectors.json` and must be
 exercised by both frontend and backend tests when calculation behavior changes.
+`shared/invalid-inputs.json` lists inputs both sides must reject.
 
 ## 9. Contact and Lead Rules
 

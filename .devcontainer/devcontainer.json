@@ -6,7 +6,7 @@
       "version": "22"
     }
   },
-  "postCreateCommand": "cd backend && python -m pip install -r requirements.txt && cd ../frontend && npm ci",
+  "postCreateCommand": "cd backend && python -m pip install -r requirements-dev.txt && cd ../frontend && npm ci",
   "forwardPorts": [3000, 8000],
   "portsAttributes": {
     "3000": {

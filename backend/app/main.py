@@ -27,6 +27,17 @@ app.add_middleware(
 )
 
 
+def _client_ip(request: Request) -> str:
+    client_host = request.client.host if request.client else "unknown"
+    if settings.trust_proxy_headers:
+        # The trusted proxy appends the address it saw, so use the last entry.
+        # Earlier entries come from the client and can be forged.
+        forwarded = request.headers.get("x-forwarded-for", "").split(",")[-1].strip()
+        if forwarded:
+            client_host = forwarded
+    return client_host
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {
@@ -74,12 +85,7 @@ async def create_lead(payload: LeadRequest, request: Request) -> LeadResponse:
             message="Your request has been received.",
         )
 
-    client_host = request.client.host if request.client else "unknown"
-    if settings.trust_proxy_headers:
-        forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-        if forwarded:
-            client_host = forwarded
-    if not lead_rate_limiter.allow(client_host):
+    if not lead_rate_limiter.allow(_client_ip(request)):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many requests. Please wait before trying again.",

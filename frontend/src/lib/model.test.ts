@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import vectors from "../../../shared/calculation-vectors.json";
+import invalidInputs from "../../../shared/invalid-inputs.json";
 import {
   buildMarketChartData,
   calculatePreview,
@@ -14,6 +15,11 @@ type Vector = {
   name: string;
   inputs: Partial<EvaluationRequest>;
   expected: Record<string, number>;
+};
+
+type InvalidInput = {
+  name: string;
+  overrides: Partial<EvaluationRequest>;
 };
 
 describe("shared frontend/backend calculation vectors", () => {
@@ -157,5 +163,9 @@ describe("invalid numerical input handling", () => {
     });
     expect(validateEvaluationInputs(request).length).toBeGreaterThan(0);
     expect(() => calculatePreview(request)).toThrow();
+  });
+
+  it.each(invalidInputs as InvalidInput[])("rejects shared case: $name", ({ overrides }) => {
+    expect(() => calculatePreview({ ...defaultRequest, ...overrides })).toThrow();
   });
 });

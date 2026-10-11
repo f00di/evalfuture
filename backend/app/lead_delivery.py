@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import logging
+from collections.abc import Awaitable
 from html import escape
 
 import httpx
 
 from .schemas import LeadRequest
 from .settings import Settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class LeadDeliveryError(RuntimeError):
@@ -21,18 +26,27 @@ class LeadDelivery:
         return self.settings.supabase_enabled or self.settings.resend_enabled
 
     async def deliver(self, lead: LeadRequest) -> tuple[bool, bool]:
-        tasks: list[tuple[str, object]] = []
+        stored = notified = False
         async with httpx.AsyncClient(timeout=8.0) as client:
+            # Each integration is attempted even if the other one fails.
             if self.settings.supabase_enabled:
-                tasks.append(("stored", await self._store(client, lead)))
+                stored = await self._attempt("Supabase storage", self._store(client, lead))
             if self.settings.resend_enabled:
-                tasks.append(("notified", await self._notify(client, lead)))
+                notified = await self._attempt("Resend notification", self._notify(client, lead))
 
-        stored = any(name == "stored" and result is True for name, result in tasks)
-        notified = any(name == "notified" and result is True for name, result in tasks)
-        if tasks and not (stored or notified):
+        if self.configured and not (stored or notified):
             raise LeadDeliveryError("Configured lead integrations were unavailable.")
         return stored, notified
+
+    @staticmethod
+    async def _attempt(name: str, call: Awaitable[bool]) -> bool:
+        try:
+            succeeded = await call
+        except httpx.HTTPError as exc:
+            # Log the failure type only; lead details are personal data.
+            logger.error("Lead %s failed: %s", name, type(exc).__name__)
+            return False
+        return succeeded
 
     async def _store(self, client: httpx.AsyncClient, lead: LeadRequest) -> bool:
         assert self.settings.supabase_url
@@ -47,7 +61,10 @@ class LeadDelivery:
             },
             json=lead.storage_payload(),
         )
-        return response.status_code in {200, 201, 204}
+        if response.status_code not in {200, 201, 204}:
+            logger.error("Supabase returned HTTP %s for a lead insert.", response.status_code)
+            return False
+        return True
 
     async def _notify(self, client: httpx.AsyncClient, lead: LeadRequest) -> bool:
         assert self.settings.resend_api_key
@@ -84,4 +101,7 @@ class LeadDelivery:
                 "reply_to": lead.email,
             },
         )
-        return response.status_code in {200, 201, 202}
+        if response.status_code not in {200, 201, 202}:
+            logger.error("Resend returned HTTP %s for a lead notification.", response.status_code)
+            return False
+        return True

@@ -6,17 +6,16 @@ import { useEffect, useState } from "react";
 import { navItems } from "@/lib/site";
 
 export default function SiteHeader() {
-  const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
-
-  useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
+  // The menu belongs to the page it was opened on, so navigating closes it.
+  const [openOnPath, setOpenOnPath] = useState<string | null>(null);
+  const isOpen = openOnPath === pathname;
+  const setIsOpen = (open: boolean) => setOpenOnPath(open ? pathname : null);
 
   useEffect(() => {
     if (!isOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsOpen(false);
+      if (event.key === "Escape") setOpenOnPath(null);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
@@ -31,7 +30,7 @@ export default function SiteHeader() {
 
         <button
           type="button"
-          onClick={() => setIsOpen((current) => !current)}
+          onClick={() => setIsOpen(!isOpen)}
           className="inline-flex size-11 items-center justify-center rounded-control border border-slate-300 bg-white text-navy lg:hidden"
           aria-label="Toggle navigation menu"
           aria-expanded={isOpen}

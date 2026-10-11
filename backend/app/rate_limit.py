@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from collections import defaultdict, deque
+from collections import OrderedDict, deque
 from threading import Lock
 
 
@@ -17,7 +17,8 @@ class InMemoryRateLimiter:
         self.limit = limit
         self.window_seconds = window_seconds
         self.max_keys = max_keys
-        self._attempts: dict[str, deque[float]] = defaultdict(deque)
+        # Ordered by most recent attempt so the stalest client is evicted first.
+        self._attempts: OrderedDict[str, deque[float]] = OrderedDict()
         self._lock = Lock()
 
     def allow(self, key: str) -> bool:
@@ -25,9 +26,13 @@ class InMemoryRateLimiter:
         cutoff = now - self.window_seconds
         with self._lock:
             self._remove_expired(cutoff)
-            if key not in self._attempts and len(self._attempts) >= self.max_keys:
-                return False
-            attempts = self._attempts[key]
+            attempts = self._attempts.get(key)
+            if attempts is None:
+                # A full table evicts the stalest client instead of refusing everyone.
+                while len(self._attempts) >= self.max_keys:
+                    self._attempts.popitem(last=False)
+                attempts = self._attempts[key] = deque()
+            self._attempts.move_to_end(key)
             if len(attempts) >= self.limit:
                 return False
             attempts.append(now)

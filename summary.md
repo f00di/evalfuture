@@ -70,8 +70,9 @@ images: { unoptimized: true }
 ```
 
 The Pages workflow builds inside `frontend`, creates `.nojekyll`, and uploads only
-`frontend/out`. CI checks Python tests, frontend audit/typecheck/tests/configured
-lint/build, and static export integrity.
+`frontend/out`. CI checks Python tests, the production dependency audit,
+frontend typecheck/tests/ESLint/build, and static export integrity. Pages deploys
+only run after those checks pass.
 
 The API must be deployed separately, such as on Render. External Supabase,
 Resend, Cloudflare/DNS, monitoring, backup, and recovery settings are documented
@@ -92,7 +93,7 @@ cd ../backend
 python3 -m pytest
 ```
 
-`npm run lint` is currently a TypeScript `tsc --noEmit` check, not ESLint.
+`npm run lint` runs ESLint with Next's recommended rules.
 
 ## Known Limitations
 

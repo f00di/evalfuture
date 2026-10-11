@@ -553,67 +553,80 @@ export function buildMarketChartData(preview: EvaluationPreview): MarketChartPoi
   ];
 }
 
-export function validateEvaluationInputs(inputs: EvaluationRequest): string[] {
-  const errors: string[] = [];
-  const finite = (value: number) => Number.isFinite(value);
-  const inPercentRange = (value: number) => finite(value) && value >= 0 && value <= 1;
-  const moneyValues = [
-    inputs.propertyNetPurchasePrice,
-    inputs.downPaymentAmount,
-    inputs.purchaseCostAmount,
-    inputs.earlyPaymentFeeAmount,
-    inputs.currentRentPerYear,
-    inputs.savingsProfitAmount
-  ];
+export type InputField =
+  | "propertyName"
+  | "propertyNetPurchasePrice"
+  | "areaValue"
+  | "downPayment"
+  | "purchaseCost"
+  | "loanTermYears"
+  | "mortgageRatePct"
+  | "earlyPaymentFee"
+  | "rentYield"
+  | "serviceChargePerSqFt"
+  | "savingsProfitRate"
+  | "marketVariations";
 
-  if (!finite(inputs.propertyNetPurchasePrice) || inputs.propertyNetPurchasePrice <= 0) {
-    errors.push("Property purchase price must be positive.");
-  }
-  if (moneyValues.some((value) => !finite(value) || value < 0 || value > MAX_MONEY_INPUT)) {
-    errors.push("Currency values must be finite and within the supported range.");
-  }
-  if (!finite(inputs.areaValue) || inputs.areaValue <= 0 || inputs.areaValue > 1_000_000_000) {
-    errors.push("Area must be positive and within the supported range.");
-  }
-  if (
-    !Number.isInteger(inputs.loanTermYears) ||
-    inputs.loanTermYears < 1 ||
-    inputs.loanTermYears > MAX_LOAN_TERM_YEARS
-  ) {
-    errors.push(`Loan term must be an integer from 1 to ${MAX_LOAN_TERM_YEARS}.`);
-  }
-  const percentValues = [
-    inputs.downPaymentPct,
-    inputs.purchaseCostPct,
-    inputs.mortgageRatePct,
-    inputs.earlyPaymentFeePct,
-    inputs.rentYieldPct,
-    inputs.savingsProfitRatePct
-  ];
-  if (percentValues.some((value) => !inPercentRange(value))) {
-    errors.push("Percentage assumptions must be between 0% and 100%.");
-  }
-  if (inputs.downPaymentAmount > inputs.propertyNetPurchasePrice) {
-    errors.push("Down payment cannot exceed the property purchase price.");
-  }
-  if (
-    !finite(inputs.serviceChargePerSqFt) ||
-    inputs.serviceChargePerSqFt < 0 ||
-    inputs.serviceChargePerSqFt > 1_000_000
-  ) {
-    errors.push("Service charges must be finite, non-negative, and within the supported range.");
-  }
-  if (inputs.customMarketVariations.length !== inputs.loanTermYears) {
-    errors.push("Custom market variation rows must match the loan term.");
-  }
-  if (
-    inputs.customMarketVariations.some(
-      (value) =>
-        value !== null &&
-        (!finite(value) || value < MIN_MARKET_VARIATION || value > MAX_MARKET_VARIATION)
-    )
-  ) {
-    errors.push("Custom market variations must be between -100% and 1000%.");
-  }
-  return errors;
+export const inputFieldMessages: Record<InputField, string> = {
+  propertyName: "Property name / description is required.",
+  propertyNetPurchasePrice: "Property net purchase price must be positive and within the supported range.",
+  areaValue: "Area value must be positive and within the supported range.",
+  downPayment: "Down payment must be between 0% and 100% of the purchase price.",
+  purchaseCost: "Purchase cost must be between 0% and 100% of the purchase price.",
+  loanTermYears: `Loan payment period must be an integer from 1 to ${MAX_LOAN_TERM_YEARS}.`,
+  mortgageRatePct: "Mortgage rate must be between 0% and 100%.",
+  earlyPaymentFee: "Early payment fee must be between 0% and 100% of the loan principal.",
+  rentYield: "Current rent must be between 0% and 100% of the purchase price per year.",
+  serviceChargePerSqFt: "Service charges must be zero or positive and within the supported range.",
+  savingsProfitRate:
+    "Profit rate your savings can earn per year must be between 0% and 100% of the initial funds.",
+  marketVariations: `Custom market variations need one row per loan year, each between ${
+    MIN_MARKET_VARIATION * 100
+  }% and ${MAX_MARKET_VARIATION * 100}%.`
+};
+
+/** Per-field validity of normalized inputs; the single source for UI and model checks. */
+export function getInputFieldErrors(inputs: EvaluationRequest): Record<InputField, boolean> {
+  const finite = (value: number) => Number.isFinite(value);
+  const validPercent = (value: number) => finite(value) && value >= 0 && value <= 1;
+  const validMoney = (value: number) => finite(value) && value >= 0 && value <= MAX_MONEY_INPUT;
+  const validPair = (amount: number, percentage: number) =>
+    validMoney(amount) && validPercent(percentage);
+
+  return {
+    propertyName: !inputs.propertyName.trim(),
+    propertyNetPurchasePrice:
+      !validMoney(inputs.propertyNetPurchasePrice) || inputs.propertyNetPurchasePrice <= 0,
+    areaValue: !finite(inputs.areaValue) || inputs.areaValue <= 0 || inputs.areaValue > 1_000_000_000,
+    downPayment:
+      !validPair(inputs.downPaymentAmount, inputs.downPaymentPct) ||
+      inputs.downPaymentAmount > inputs.propertyNetPurchasePrice,
+    purchaseCost: !validPair(inputs.purchaseCostAmount, inputs.purchaseCostPct),
+    loanTermYears:
+      !Number.isInteger(inputs.loanTermYears) ||
+      inputs.loanTermYears < 1 ||
+      inputs.loanTermYears > MAX_LOAN_TERM_YEARS,
+    mortgageRatePct: !validPercent(inputs.mortgageRatePct),
+    earlyPaymentFee: !validPair(inputs.earlyPaymentFeeAmount, inputs.earlyPaymentFeePct),
+    rentYield: !validPair(inputs.currentRentPerYear, inputs.rentYieldPct),
+    serviceChargePerSqFt:
+      !finite(inputs.serviceChargePerSqFt) ||
+      inputs.serviceChargePerSqFt < 0 ||
+      inputs.serviceChargePerSqFt > 1_000_000,
+    savingsProfitRate: !validPair(inputs.savingsProfitAmount, inputs.savingsProfitRatePct),
+    marketVariations:
+      inputs.customMarketVariations.length !== inputs.loanTermYears ||
+      inputs.customMarketVariations.some(
+        (value) =>
+          value !== null &&
+          (!finite(value) || value < MIN_MARKET_VARIATION || value > MAX_MARKET_VARIATION)
+      )
+  };
+}
+
+export function validateEvaluationInputs(inputs: EvaluationRequest): string[] {
+  const fields = getInputFieldErrors(inputs);
+  return (Object.keys(fields) as InputField[])
+    .filter((field) => fields[field])
+    .map((field) => inputFieldMessages[field]);
 }

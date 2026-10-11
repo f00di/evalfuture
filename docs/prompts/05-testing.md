@@ -24,7 +24,6 @@ Requirements:
   npm test
   npm run verify:export after a successful build
   backend pytest if dependencies are available
-- Report that the configured lint script is TypeScript-based, not ESLint.
 - Extend the shared calculation vectors when formula behavior changes.
 - Add focused tests without unnecessary dependencies.
 - Prioritize dynamic loan-term rows, Default/Custom scenario logic, calculation consistency, XLSX export, and GitHub Pages static export.

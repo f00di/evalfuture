@@ -37,7 +37,8 @@ Preview and workbook export do not require Supabase or Resend.
 `shared/calculation-vectors.json` is tested by TypeScript and Python. It includes
 the default case, zero mortgage rate, maximum loan term, fixed-amount modes,
 square-metre service-charge conversion, Custom scenarios, and blank Custom
-fallback. Focused tests also cover invalid values, negative/zero market movement,
+fallback. `shared/invalid-inputs.json` lists amount-mode inputs that both sides
+must reject after normalization. Focused tests also cover invalid values, negative/zero market movement,
 dynamic rows, early settlement, Year 0, and the exact two-sheet workbook shape.
 
 ## Environment Variables
@@ -65,7 +66,10 @@ NOTIFICATION_EMAIL=
 
 Use exact origins without `/evalfuture`; CORS origins do not include URL paths.
 Set `TRUST_PROXY_HEADERS=true` only when the API is behind a trusted proxy that
-overwrites `X-Forwarded-For`.
+appends the connecting address to `X-Forwarded-For` (Render does). The API uses
+the last entry, because earlier entries are supplied by the client and can be
+forged. If another proxy such as Cloudflare sits in front, the last entry is that
+proxy's address; use its client-IP header or managed rate limiting instead.
 
 ## Recommended Deployment Order
 

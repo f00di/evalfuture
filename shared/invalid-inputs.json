@@ -1,0 +1,18 @@
+[
+  {
+    "name": "purchase cost amount above purchase price",
+    "overrides": { "purchaseCostSource": "amount", "purchaseCostAmount": 2000000 }
+  },
+  {
+    "name": "rent amount above purchase price",
+    "overrides": { "rentYieldSource": "amount", "currentRentPerYear": 2000000 }
+  },
+  {
+    "name": "savings profit amount above initial funds",
+    "overrides": { "savingsProfitRateSource": "amount", "savingsProfitAmount": 400000 }
+  },
+  {
+    "name": "early payment fee amount above loan principal",
+    "overrides": { "earlyPaymentFeeSource": "amount", "earlyPaymentFeeAmount": 1300000 }
+  }
+]

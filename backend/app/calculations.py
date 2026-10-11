@@ -172,6 +172,20 @@ def _normalize_inputs(inputs: EvaluationRequest) -> EvaluationRequest:
     )
 
 
+def _validate_normalized(inputs: EvaluationRequest) -> None:
+    """Mirror the frontend check on percentages derived from amount inputs."""
+    percentages = (
+        inputs.downPaymentPct,
+        inputs.purchaseCostPct,
+        inputs.mortgageRatePct,
+        inputs.earlyPaymentFeePct,
+        inputs.rentYieldPct,
+        inputs.savingsProfitRatePct,
+    )
+    if any(not 0 <= value <= 1 for value in percentages):
+        raise ValueError("Percentage assumptions must be between 0% and 100%.")
+
+
 def _core_values(inputs: EvaluationRequest) -> _CoreValues:
     down_payment = inputs.downPaymentAmount
     purchase_cost = inputs.purchaseCostAmount
@@ -189,6 +203,7 @@ def _core_values(inputs: EvaluationRequest) -> _CoreValues:
 
 def calculate_preview(inputs: EvaluationRequest) -> EvaluationPreview:
     inputs = _normalize_inputs(inputs)
+    _validate_normalized(inputs)
     custom_variations = normalize_custom_variations(
         inputs.customMarketVariations,
         inputs.loanTermYears,

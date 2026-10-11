@@ -46,6 +46,7 @@ frontend/
   src/lib/             Browser model, site data, and workbook generator
 shared/
   calculation-vectors.json
+  invalid-inputs.json
 docs/
 ```
 
@@ -83,7 +84,7 @@ Backend:
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
-python3 -m pip install -r requirements.txt
+python3 -m pip install -r requirements-dev.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -112,7 +113,11 @@ rejects unexpected fields, uses a honeypot, applies a five-attempt-per-15-minute
 in-memory limit per client, and returns non-sensitive errors. It sends only the
 fields shown in the contact form; full calculator assumptions are not submitted.
 If neither optional delivery service is configured, it returns `503` and the
-frontend explicitly says that online inquiries are unavailable.
+frontend explicitly says that online inquiries are unavailable. When both are
+configured, each is attempted even if the other fails; failures are logged with
+the integration name and error type or HTTP status only, never lead details. When
+the limiter's client table is full, the least recently seen client is evicted so
+new visitors are never refused wholesale.
 
 Environment variables:
 
@@ -120,7 +125,7 @@ Environment variables:
 | --- | --- | --- |
 | Browser-safe | `NEXT_PUBLIC_API_BASE_URL` | Optional FastAPI origin |
 | Server-only | `ALLOWED_FRONTEND_ORIGINS` | Exact comma-separated CORS origins |
-| Server-only | `TRUST_PROXY_HEADERS` | Trust forwarded IP only behind a trusted proxy |
+| Server-only | `TRUST_PROXY_HEADERS` | Use the last `X-Forwarded-For` entry only behind a trusted proxy |
 | Server-only | `SUPABASE_URL` | Optional Supabase project URL |
 | Server-only | `SUPABASE_SERVICE_ROLE_KEY` | Optional lead insert credential |
 | Server-only | `RESEND_API_KEY` | Optional email credential |
@@ -145,9 +150,11 @@ npm run build
 npm run verify:export
 ```
 
-`npm run lint` currently runs `tsc --noEmit`; no ESLint configuration is
-present. Vitest covers pure model behavior, validation-sensitive scenarios, the
-Year 0 chart baseline, and the browser workbook ZIP/sheet structure.
+`npm run lint` runs ESLint with Next's core-web-vitals and TypeScript rules
+(`frontend/eslint.config.mjs`). Vitest covers pure model behavior,
+validation-sensitive scenarios, the Year 0 chart baseline, the browser workbook
+ZIP/sheet structure, and a jsdom test of the calculator flow (validation,
+generation, loan-term rows, and browser workbook download).
 
 Backend:
 
@@ -157,7 +164,14 @@ python3 -m pytest
 ```
 
 The Python suite covers calculations, shared vectors, invalid inputs, API lead
-behavior, rate limiting, and workbook structure/formulas.
+behavior, lead-delivery fallbacks, rate limiting, and workbook structure/formulas.
+Runtime dependencies are in `backend/requirements.txt`; `requirements-dev.txt`
+adds the test tools.
+
+CI runs on pull requests. Pushes to `main` run the same checks from
+`deploy.yml`, and GitHub Pages is only deployed when they pass. The CI audit
+covers production dependencies (`npm audit --omit=dev`); build-only tooling such
+as Tailwind CSS 3 still carries advisories with no non-breaking fix.
 
 ## GitHub Pages
 

@@ -129,6 +129,26 @@ def test_rate_limit_rejects_sixth_request(monkeypatch: pytest.MonkeyPatch) -> No
     assert responses[5].status_code == 429
 
 
+def test_forged_forwarded_for_prefix_does_not_bypass_rate_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(main, "lead_delivery", DeliveryStub(configured=True))
+    monkeypatch.setattr(main, "settings", replace(main.settings, trust_proxy_headers=True))
+    client = TestClient(main.app)
+
+    responses = [
+        client.post(
+            "/api/leads",
+            json=VALID_LEAD,
+            headers={"X-Forwarded-For": f"10.0.0.{attempt}, 203.0.113.7"},
+        )
+        for attempt in range(6)
+    ]
+
+    assert [response.status_code for response in responses[:5]] == [201] * 5
+    assert responses[5].status_code == 429
+
+
 def test_cors_allows_configured_origin_only() -> None:
     client = TestClient(main.app)
     allowed = client.options(

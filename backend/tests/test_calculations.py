@@ -10,13 +10,9 @@ from app.calculations import calculate_preview
 from app.schemas import EvaluationRequest
 
 
-SHARED_VECTORS = json.loads(
-    (
-        Path(__file__).resolve().parents[2]
-        / "shared"
-        / "calculation-vectors.json"
-    ).read_text()
-)
+SHARED_DIR = Path(__file__).resolve().parents[2] / "shared"
+SHARED_VECTORS = json.loads((SHARED_DIR / "calculation-vectors.json").read_text())
+SHARED_INVALID_INPUTS = json.loads((SHARED_DIR / "invalid-inputs.json").read_text())
 
 
 @pytest.mark.parametrize(
@@ -190,3 +186,13 @@ def test_totals_and_final_values_match_displayed_rows() -> None:
 def test_invalid_numerical_inputs_are_rejected(overrides: dict) -> None:
     with pytest.raises(ValidationError):
         EvaluationRequest(**overrides)
+
+
+@pytest.mark.parametrize(
+    ("case"),
+    SHARED_INVALID_INPUTS,
+    ids=[case["name"] for case in SHARED_INVALID_INPUTS],
+)
+def test_shared_invalid_inputs_are_rejected_after_normalization(case: dict) -> None:
+    with pytest.raises(ValueError):
+        calculate_preview(EvaluationRequest(**case["overrides"]))
